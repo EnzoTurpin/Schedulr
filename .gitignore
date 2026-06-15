@@ -1,0 +1,61 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Build Next.js
+.next/
+out/
+build/
+dist/
+
+# Tests & couverture
+coverage/
+test-results/
+playwright-report/
+.vitest/
+
+# Environnement — jamais de secrets versionnés
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Client Prisma généré : artefact de build, et le moteur de requête est un
+# binaire natif propre à la plateforme. Régénéré par `pnpm db:generate`, appelé
+# automatiquement au postinstall et au build.
+src/generated/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Divers
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Claude
+.claude/
+CLAUDE.md
