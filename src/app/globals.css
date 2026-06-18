@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+/**
+ * Jetons de conception. Tailwind v4 se configure en CSS : chaque variable
+ * déclarée ici devient une classe utilitaire (`--color-brand-500` donne
+ * `bg-brand-500`, `text-brand-500`, ...).
+ *
+ * La palette définitive est arrêtée en phase 3 avec les écrans de
+ * réservation. Les contrastes devront être vérifiés à ce moment-là : le
+ * CLAUDE.md impose un ratio ≥ 4,5:1 pour le texte normal (WCAG 2.1 AA).
+ */
+@theme {
+  --color-brand-50: oklch(0.97 0.02 305);
+  --color-brand-100: oklch(0.94 0.04 305);
+  --color-brand-200: oklch(0.88 0.07 305);
+  --color-brand-300: oklch(0.8 0.11 305);
+  --color-brand-400: oklch(0.7 0.15 305);
+  --color-brand-500: oklch(0.6 0.18 305);
+  --color-brand-600: oklch(0.52 0.19 305);
+  --color-brand-700: oklch(0.44 0.17 305);
+  --color-brand-800: oklch(0.36 0.14 305);
+  --color-brand-900: oklch(0.28 0.1 305);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    sans-serif;
+}
+
+@layer base {
+  html {
+    /* Ancre le défilement sous les en-têtes collants lors d'un saut d'ancre. */
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white font-sans text-slate-900 antialiased;
+  }
+
+  /* Anneau de focus visible sur tout élément atteint au clavier : exigence
+     d'accessibilité, ne pas neutraliser. */
+  :focus-visible {
+    @apply outline-brand-600 outline-2 outline-offset-2;
+  }
+
+  /* Respecte le réglage système de réduction des animations. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
