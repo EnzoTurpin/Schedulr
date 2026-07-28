@@ -1,0 +1,40 @@
+// Schéma Prisma — Schedulr
+//
+// Le schéma est découpé par domaine dans ce dossier (fonctionnalité GA de
+// Prisma 6) pour respecter la limite de taille de fichier du CLAUDE.md :
+//
+//   auth.prisma         comptes, sessions, consentements
+//   salon.prisma        salons et membres d'équipe
+//   catalog.prisma      catégories, prestations, affectations
+//   scheduling.prisma   horaires, absences, fermetures
+//   appointment.prisma  rendez-vous et lignes de prestation
+//   ops.prisma          journaux de notification et d'audit
+//
+// Conventions transverses :
+//   - Toute table métier porte `salonId` (ADR-0002), y compris quand il serait
+//     dérivable par jointure. La redondance est assumée : elle permet de
+//     filtrer sans jointure et rend un oubli visible en revue.
+//   - Les instants sont stockés en UTC (`timestamptz`) ; les horaires
+//     récurrents en minutes locales + `Salon.timezone` (ADR-0003).
+//
+//     ⚠️ Tout champ `DateTime` porte `@db.Timestamptz(3)`. Ce n'est pas
+//     cosmétique : Prisma mappe `DateTime` vers `timestamp(3)` SANS fuseau par
+//     défaut, ce qui perd l'information de décalage et rouvre exactement le
+//     bug de changement d'heure que l'ADR-0003 cherche à fermer. Effet
+//     collatéral concret : la contrainte d'exclusion de l'ADR-0004 est alors
+//     refusée par PostgreSQL, car le cast implicite
+//     `timestamp -> timestamptz` dépend du fuseau de session et rend
+//     l'expression générée non immutable.
+//   - Les montants sont en centimes entiers, jamais en flottants.
+
+generator client {
+  provider = "prisma-client-js"
+  // Sortie explicite dans le dépôt : Prisma 7 rendra ce champ obligatoire.
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}

@@ -1,0 +1,124 @@
+// Rendez-vous.
+//
+// ⚠️ La table Appointment porte une colonne `period` générée et une contrainte
+// d'exclusion GiST qui rendent tout chevauchement impossible pour un même
+// coiffeur (ADR-0004). Prisma ne sait décrire ni l'une ni l'autre : elles sont
+// posées par la migration SQL manuelle
+// `prisma/migrations/*_appointment_no_overlap/migration.sql`.
+//
+// Ne jamais supprimer cette migration, et vérifier après tout
+// `prisma migrate dev` que la contrainte est toujours en place — c'est l'objet
+// du garde-fou `pnpm db:drift` et du test d'intégration de concurrence.
+
+enum AppointmentStatus {
+  /// Réservé mais pas encore confirmé (réservé à une future étape de paiement).
+  PENDING
+  CONFIRMED
+  /// Prestation réalisée.
+  DONE
+  /// Client absent — compté pour le suivi des no-shows.
+  NO_SHOW
+  CANCELLED
+}
+
+enum AppointmentSource {
+  ONLINE
+  SALON
+  PHONE
+}
+
+/// Réservé pour la V2 (acompte Stripe). Figé à NONE en V1.
+enum PaymentStatus {
+  NONE
+  DEPOSIT_PENDING
+  DEPOSIT_PAID
+  PAID
+  REFUNDED
+}
+
+model Appointment {
+  id       String @id @default(cuid())
+  salonId  String
+  memberId String
+
+  /// Nul pour un rendez-vous pris par téléphone ou au comptoir par une
+  /// personne sans compte. La réservation en ligne, elle, exige un compte.
+  clientId String?
+
+  /// Renseignés uniquement lorsque `clientId` est nul.
+  guestName  String?
+  guestPhone String?
+  guestEmail String?
+
+  /// Instants en UTC. `endAt` inclut les marges des prestations : c'est
+  /// l'emprise réelle dans l'agenda, et c'est elle que la contrainte
+  /// d'exclusion protège.
+  startAt DateTime @db.Timestamptz(3)
+  endAt   DateTime @db.Timestamptz(3)
+
+  status        AppointmentStatus @default(CONFIRMED)
+  source        AppointmentSource @default(ONLINE)
+  paymentStatus PaymentStatus     @default(NONE)
+
+  /// Message laissé par le client à la réservation.
+  clientNote String?
+
+  /// Note interne du salon, jamais exposée au client.
+  staffNote String?
+
+  cancelledAt DateTime? @db.Timestamptz(3)
+  /// Identifiant de l'utilisateur ayant annulé. Volontairement sans relation :
+  /// la trace doit survivre à l'anonymisation du compte.
+  cancelledBy String?
+
+  salon         Salon             @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  member        SalonMember       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  client        User?             @relation("clientAppointments", fields: [clientId], references: [id], onDelete: SetNull)
+  items         AppointmentItem[]
+  notifications NotificationLog[]
+
+  /// Emprise temporelle générée par PostgreSQL, support de la contrainte
+  /// d'exclusion (ADR-0004).
+  ///
+  /// Déclarée ici uniquement pour que `prisma migrate` cesse de proposer sa
+  /// suppression : Prisma ne modélise pas les colonnes générées. Le type
+  /// `Unsupported` l'exclut automatiquement du client généré — inutile d'y
+  /// ajouter `@ignore`, Prisma le refuse comme redondant. Elle ne doit jamais
+  /// être écrite depuis le code : PostgreSQL la calcule.
+  period Unsupported("tstzrange")? @default(dbgenerated("tstzrange(\"startAt\", \"endAt\", '[)'::text)"))
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([salonId, startAt])
+  @@index([memberId, startAt])
+  @@index([clientId, startAt])
+  @@index([salonId, status, startAt])
+}
+
+/// Ligne de prestation d'un rendez-vous. Un rendez-vous en compte une ou
+/// plusieurs : une coloration suivie d'une coupe est un seul rendez-vous.
+///
+/// Les libellés, durées et prix sont **figés à la réservation**. Modifier un
+/// tarif ne doit jamais réécrire l'historique ni le montant annoncé au client.
+model AppointmentItem {
+  id            String @id @default(cuid())
+  salonId       String
+  appointmentId String
+  serviceId     String
+
+  nameSnapshot  String
+  durationMin   Int
+  priceCents    Int
+  position      Int    @default(0)
+
+  salon       Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([appointmentId, position])
+  @@index([salonId])
+  @@index([serviceId])
+}
