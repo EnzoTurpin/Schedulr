@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicSalon, type PublicSalon } from '@/features/salon/queries'
 import { dayName, formatDuration, formatMinutesOfDay, formatPrice } from '@/lib/format'
+import { serializeJsonLd } from '@/lib/jsonLd'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -87,9 +88,10 @@ export default async function SalonPage({ params }: Props) {
     <main id="contenu" className="mx-auto max-w-4xl px-6 py-12">
       <script
         type="application/ld+json"
-        // Contenu issu de notre base et sérialisé par JSON.stringify, jamais
-        // d'une saisie libre non échappée.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData(salon)) }}
+        // `serializeJsonLd` et non `JSON.stringify` : ce dernier n'échappe pas
+        // `</script>`, et les champs sérialisés ici — nom, description,
+        // biographies — sont saisis librement par le gérant du salon.
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData(salon)) }}
       />
 
       <h1 className="text-3xl font-semibold tracking-tight">{salon.name}</h1>
