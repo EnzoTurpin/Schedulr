@@ -1,13 +1,30 @@
 import { PrismaClient } from '@/generated/prisma'
 
+const DATABASE_URL = process.env.DATABASE_URL ?? ''
+
+/**
+ * Garde-fou : refuser toute base qui ne soit pas une base de test.
+ *
+ * `resetDatabase()` efface l'intégralité des données. Or un développeur qui
+ * charge son `.env` avant de lancer les tests ferait pointer cette URL sur sa
+ * base de développement, et la perdrait sans un mot d'avertissement. La
+ * convention est donc explicite : le nom de la base doit contenir « test ».
+ */
+if (!/test/i.test(DATABASE_URL)) {
+  throw new Error(
+    `Les tests d'intégration refusent de s'exécuter sur « ${DATABASE_URL} » : ` +
+      `le nom de la base doit contenir « test ». Ces tests effacent toutes les ` +
+      `données — pointer une base de développement la détruirait.`,
+  )
+}
+
 /**
  * Client Prisma des tests d'intégration.
  *
- * Pointe sur `schedulr_test`, jamais sur la base de développement : les tests
- * effacent des données.
+ * Pointe sur `schedulr_test`, jamais sur la base de développement.
  */
 export const testDb = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL } },
+  datasources: { db: { url: DATABASE_URL } },
   log: ['warn', 'error'],
 })
 
