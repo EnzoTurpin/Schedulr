@@ -19,6 +19,7 @@ export const e2eDb = new PrismaClient({
 })
 
 export const CLIENT_EMAIL = 'client.e2e@example.fr'
+export const OWNER_EMAIL = 'gerante.e2e@example.fr'
 export const CLIENT_PASSWORD = 'mot-de-passe-e2e-2026'
 export const SALON_SLUG = 'salon-e2e'
 
@@ -84,6 +85,21 @@ export async function seedE2e() {
     },
   })
 
+  // Gérante du salon, pour les parcours de l'agenda professionnel.
+  const ownerUser = await e2eDb.user.create({
+    data: {
+      email: OWNER_EMAIL,
+      firstName: 'Julie',
+      lastName: 'Gérante',
+      emailVerified: new Date(),
+      passwordHash: await hashPassword(CLIENT_PASSWORD),
+    },
+  })
+  await e2eDb.salonMember.update({
+    where: { id: member.id },
+    data: { userId: ownerUser.id, role: 'OWNER' },
+  })
+
   const user = await e2eDb.user.create({
     data: {
       email: CLIENT_EMAIL,
@@ -94,7 +110,7 @@ export async function seedE2e() {
     },
   })
 
-  return { salon, service, member, user }
+  return { salon, service, member, user, ownerUser }
 }
 
 /**
