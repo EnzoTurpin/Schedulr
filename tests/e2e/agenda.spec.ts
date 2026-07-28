@@ -213,3 +213,100 @@ test('l’agenda n’a aucune violation d’accessibilité bloquante', async ({ 
 
   expect(results.violations.map((v) => `${v.id}: ${v.description}`)).toEqual([])
 })
+
+test('la gérante crée un rendez-vous au comptoir depuis une plage vide', async ({
+  page,
+}) => {
+  await signInAsOwner(page)
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+
+  // Un clic sur le fond de la colonne ouvre le formulaire de création.
+  await page
+    .getByRole('group', { name: 'Camille' })
+    .click({ position: { x: 50, y: 200 } })
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('checkbox', { name: /Coupe femme/ }).check()
+  await dialog.getByLabel('Nom du client').fill('Madame Nouvelle')
+  await dialog.getByLabel(/Téléphone/).fill('+33611223344')
+  await dialog.getByRole('button', { name: 'Créer le rendez-vous' }).click()
+
+  await expect
+    .poll(async () =>
+      e2eDb.appointment.count({ where: { guestName: 'Madame Nouvelle' } }),
+    )
+    .toBe(1)
+
+  const created = await e2eDb.appointment.findFirstOrThrow({
+    where: { guestName: 'Madame Nouvelle' },
+  })
+  expect(created.clientId).toBeNull()
+  expect(created.source).toBe('SALON')
+  expect(created.guestPhone).toBe('+33611223344')
+})
+
+test('le formulaire de création se ferme avec Échap sans rien créer', async ({
+  page,
+}) => {
+  await signInAsOwner(page)
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+
+  await page
+    .getByRole('group', { name: 'Camille' })
+    .click({ position: { x: 50, y: 200 } })
+  await expect(page.getByRole('dialog')).toBeVisible()
+
+  await page.keyboard.press('Escape')
+
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+  expect(await e2eDb.appointment.count()).toBe(0)
+})
+
+test('un redimensionnement au clavier allonge le rendez-vous', async ({ page }) => {
+  await signInAsOwner(page)
+  const appointment = await seedAppointment(14)
+  const before = appointment.endAt.getTime()
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: /Madame Durand/ }).focus()
+  await page.keyboard.press('Shift+ArrowDown')
+
+  await expect
+    .poll(async () => {
+      const row = await e2eDb.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
+      })
+      return row.endAt.getTime() - before
+    })
+    .toBe(15 * 60_000)
+})
+
+test('la vue semaine affiche sept colonnes pour un coiffeur', async ({ page }) => {
+  await signInAsOwner(page)
+  await seedAppointment(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=week`)
+
+  // `exact` : « Semaine » matcherait aussi « Semaine précédente » et
+  // « Semaine suivante ».
+  await expect(
+    page.getByRole('button', { name: 'Semaine', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  // Sept colonnes-jours, plus le sélecteur de coiffeur.
+  await expect(
+    page.getByRole('group', { name: /^(lun|mar|mer|jeu|ven|sam|dim)/ }),
+  ).toHaveCount(7)
+  await expect(page.getByLabel('Coiffeur')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
+})
+
+test('la vue semaine se cale sur le lundi quelle que soit la date demandée', async ({
+  page,
+}) => {
+  await signInAsOwner(page)
+  // 2026-09-16 est un mercredi : la semaine doit démarrer le lundi 14.
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=week`)
+
+  await expect(page.getByText(/Semaine du 14 septembre/)).toBeVisible()
+})

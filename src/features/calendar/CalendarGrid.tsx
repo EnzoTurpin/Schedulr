@@ -20,6 +20,10 @@ import { cn } from '@/lib/utils'
  * réversible — basculer sur une bibliothèque tierce ne toucherait que ce
  * fichier.
  *
+ * Les colonnes représentent indifféremment des coiffeurs (vue jour) ou des
+ * jours (vue semaine d'un coiffeur) : chaque colonne peut porter sa propre
+ * échelle temporelle.
+ *
  * La géométrie est calculée par `layout.ts`, testé sans navigateur.
  */
 
@@ -27,6 +31,11 @@ export type CalendarResource = {
   id: string
   label: string
   color: string
+  /**
+   * Échelle propre à la colonne. Nécessaire en vue semaine, où chaque colonne
+   * couvre un jour différent. Absente, l'échelle globale s'applique.
+   */
+  scale?: GridScale
 }
 
 export type CalendarEvent = {
@@ -43,13 +52,14 @@ export type CalendarEvent = {
 export type CalendarGridProps = {
   resources: CalendarResource[]
   events: CalendarEvent[]
-  /** Plage affichée. */
+  /** Plage affichée, par défaut pour toutes les colonnes. */
   scale: GridScale
   timezone: string
-  /** Granularité des créations et des déplacements, en minutes. */
+  /** Granularité des créations, déplacements et redimensionnements, en minutes. */
   stepMinutes?: number
   onCreate?: (draft: { resourceId: string; startAt: number }) => void
   onMove?: (id: string, next: { resourceId: string; startAt: number }) => void
+  onResize?: (id: string, next: { endAt: number }) => void
   onSelect?: (id: string) => void
 }
 
@@ -59,6 +69,9 @@ const STATUS_STYLES: Record<string, string> = {
   NO_SHOW: 'opacity-60 line-through',
 }
 
+/** Hauteur minimale d'un bloc pour que la poignée reste saisissable. */
+const HANDLE_MIN_HEIGHT = 28
+
 export function CalendarGrid({
   resources,
   events,
@@ -67,11 +80,13 @@ export function CalendarGrid({
   stepMinutes = 15,
   onCreate,
   onMove,
+  onResize,
   onSelect,
 }: CalendarGridProps) {
-  const [dragging, setDragging] = useState<{ id: string; resourceId: string } | null>(
-    null,
-  )
+  const [dragging, setDragging] = useState<{
+    id: string
+    mode: 'move' | 'resize'
+  } | null>(null)
 
   const height = gridHeight(scale)
   const marks = hourMarks(scale)
@@ -82,7 +97,7 @@ export function CalendarGrid({
   }
 
   function handleColumnPointerDown(
-    resourceId: string,
+    resource: CalendarResource,
     domEvent: PointerEvent<HTMLDivElement>,
   ) {
     // Seul un clic sur le fond crée : un clic sur un bloc le sélectionne.
@@ -90,30 +105,44 @@ export function CalendarGrid({
 
     const startAt = offsetToInstant(
       offsetIn(domEvent.currentTarget, domEvent.clientY),
-      scale,
+      resource.scale ?? scale,
       stepMinutes,
     )
-    onCreate({ resourceId, startAt })
+    onCreate({ resourceId: resource.id, startAt })
   }
 
-  function handleDrop(resourceId: string, domEvent: PointerEvent<HTMLDivElement>) {
-    if (!dragging || !onMove) return
+  function handleColumnPointerUp(
+    resource: CalendarResource,
+    domEvent: PointerEvent<HTMLDivElement>,
+  ) {
+    if (!dragging) return
 
-    const startAt = offsetToInstant(
+    const instant = offsetToInstant(
       offsetIn(domEvent.currentTarget, domEvent.clientY),
-      scale,
+      resource.scale ?? scale,
       stepMinutes,
     )
-    onMove(dragging.id, { resourceId, startAt })
+
+    if (dragging.mode === 'resize') {
+      // Un redimensionnement ne change jamais de colonne : seule la fin bouge.
+      onResize?.(dragging.id, { endAt: instant })
+    } else {
+      onMove?.(dragging.id, { resourceId: resource.id, startAt: instant })
+    }
     setDragging(null)
   }
 
   /**
    * Navigation clavier (WCAG 2.1 AA).
    *
-   * Tout ce qui se fait à la souris doit se faire au clavier : les flèches
-   * déplacent d'un pas, Maj+flèches changent de coiffeur, Entrée ouvre le
-   * détail.
+   * Tout ce qui se fait à la souris doit se faire au clavier :
+   *   - flèches haut/bas : déplacer d'un pas
+   *   - Maj + haut/bas : allonger ou raccourcir
+   *   - Alt + gauche/droite : changer de colonne
+   *   - Entrée ou Espace : ouvrir le détail
+   *
+   * `Alt` plutôt que `Maj` pour le changement de colonne, afin de laisser
+   * `Maj + flèches` au redimensionnement, geste plus courant.
    */
   function handleEventKeyDown(
     domEvent: KeyboardEvent<HTMLButtonElement>,
@@ -131,9 +160,21 @@ export function CalendarGrid({
 
       case 'ArrowUp':
       case 'ArrowDown': {
+        const delta = domEvent.key === 'ArrowUp' ? -stepMs : stepMs
+
+        if (domEvent.shiftKey) {
+          if (!onResize) return
+          domEvent.preventDefault()
+          const nextEnd = event.endAt + delta
+          // Un bloc ne peut pas se replier sur lui-même : la fin doit rester
+          // après le début, d'au moins un pas.
+          if (nextEnd <= event.startAt + stepMs - 1) return
+          onResize(event.id, { endAt: nextEnd })
+          return
+        }
+
         if (!onMove) return
         domEvent.preventDefault()
-        const delta = domEvent.key === 'ArrowUp' ? -stepMs : stepMs
         onMove(event.id, {
           resourceId: event.resourceId,
           startAt: event.startAt + delta,
@@ -143,7 +184,7 @@ export function CalendarGrid({
 
       case 'ArrowLeft':
       case 'ArrowRight': {
-        if (!onMove || !domEvent.shiftKey) return
+        if (!onMove || !domEvent.altKey) return
         domEvent.preventDefault()
         const next = columnIndex + (domEvent.key === 'ArrowLeft' ? -1 : 1)
         const target = resources[next]
@@ -180,9 +221,10 @@ export function CalendarGrid({
         </div>
 
         {resources.map((resource) => {
+          const columnScale = resource.scale ?? scale
           const boxes = layoutEvents(
             events.filter((event) => event.resourceId === resource.id),
-            scale,
+            columnScale,
           )
 
           return (
@@ -208,14 +250,12 @@ export function CalendarGrid({
                 role="group"
                 aria-labelledby={`colonne-${resource.id}`}
                 className="relative bg-slate-50/50"
-                style={{ height }}
-                onPointerDown={(domEvent) =>
-                  handleColumnPointerDown(resource.id, domEvent)
-                }
-                onPointerUp={(domEvent) => handleDrop(resource.id, domEvent)}
+                style={{ height: gridHeight(columnScale) }}
+                onPointerDown={(domEvent) => handleColumnPointerDown(resource, domEvent)}
+                onPointerUp={(domEvent) => handleColumnPointerUp(resource, domEvent)}
               >
                 {/* Lignes horaires */}
-                {marks.map((mark) => (
+                {hourMarks(columnScale).map((mark) => (
                   <div
                     key={mark.instant}
                     aria-hidden="true"
@@ -225,40 +265,59 @@ export function CalendarGrid({
                 ))}
 
                 {boxes.map(({ event, top, height: blockHeight, left, width }) => (
-                  <button
+                  <div
                     key={event.id}
-                    type="button"
-                    onClick={() => onSelect?.(event.id)}
-                    onKeyDown={(domEvent) => handleEventKeyDown(domEvent, event)}
-                    onPointerDown={() =>
-                      setDragging({ id: event.id, resourceId: event.resourceId })
-                    }
-                    aria-label={`${event.title}, de ${time(event.startAt)} à ${time(event.endAt)}${
-                      event.status ? `, ${event.status}` : ''
-                    }`}
-                    className={cn(
-                      'absolute overflow-hidden rounded border-l-4 bg-white px-2 py-1 text-left text-xs shadow-sm',
-                      'hover:z-10 hover:shadow-md focus-visible:z-10',
-                      event.status ? STATUS_STYLES[event.status] : undefined,
-                    )}
+                    className="absolute"
                     style={{
                       top,
                       height: blockHeight,
                       left: `calc(${left * 100}% + 2px)`,
                       width: `calc(${width * 100}% - 4px)`,
-                      borderLeftColor: resource.color,
                     }}
                   >
-                    <span className="block truncate font-medium">{event.title}</span>
-                    <span className="block truncate text-slate-500">
-                      {time(event.startAt)} – {time(event.endAt)}
-                    </span>
-                    {event.subtitle && (
+                    <button
+                      type="button"
+                      onClick={() => onSelect?.(event.id)}
+                      onKeyDown={(domEvent) => handleEventKeyDown(domEvent, event)}
+                      onPointerDown={() => setDragging({ id: event.id, mode: 'move' })}
+                      aria-label={`${event.title}, de ${time(event.startAt)} à ${time(
+                        event.endAt,
+                      )}${event.status ? `, ${event.status}` : ''}`}
+                      className={cn(
+                        'size-full overflow-hidden rounded border-l-4 bg-white px-2 py-1 text-left text-xs shadow-sm',
+                        'hover:z-10 hover:shadow-md focus-visible:z-10',
+                        event.status ? STATUS_STYLES[event.status] : undefined,
+                      )}
+                      style={{ borderLeftColor: resource.color }}
+                    >
+                      <span className="block truncate font-medium">{event.title}</span>
                       <span className="block truncate text-slate-500">
-                        {event.subtitle}
+                        {time(event.startAt)} – {time(event.endAt)}
                       </span>
+                      {event.subtitle && (
+                        <span className="block truncate text-slate-500">
+                          {event.subtitle}
+                        </span>
+                      )}
+                    </button>
+
+                    {/*
+                      Poignée de redimensionnement. Masquée aux lecteurs d'écran :
+                      elle duplique une action déjà offerte au clavier par
+                      Maj + flèches, et un contrôle non atteignable au clavier
+                      ne doit pas être annoncé.
+                    */}
+                    {onResize && blockHeight >= HANDLE_MIN_HEIGHT && (
+                      <span
+                        aria-hidden="true"
+                        onPointerDown={(domEvent) => {
+                          domEvent.stopPropagation()
+                          setDragging({ id: event.id, mode: 'resize' })
+                        }}
+                        className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize rounded-b bg-transparent hover:bg-slate-300/60"
+                      />
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -267,9 +326,10 @@ export function CalendarGrid({
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Cliquez sur une plage vide pour créer un rendez-vous. Au clavier : flèches haut et
-        bas pour déplacer, Maj + flèches gauche et droite pour changer de coiffeur, Entrée
-        pour ouvrir le détail.
+        Cliquez sur une plage vide pour créer un rendez-vous, glissez le bord inférieur
+        d’un bloc pour l’allonger. Au clavier : flèches haut et bas pour déplacer, Maj +
+        flèches pour allonger ou raccourcir, Alt + flèches gauche et droite pour changer
+        de colonne, Entrée pour ouvrir le détail.
       </p>
     </div>
   )
