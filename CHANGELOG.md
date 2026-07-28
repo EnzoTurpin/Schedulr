@@ -7,6 +7,41 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-29
+
+### Added — phase 8 : conformité et durcissement
+
+- **Droits des personnes** : export des données au format JSON depuis l'espace
+  client, et suppression de compte par anonymisation — l'identité est effacée,
+  les rendez-vous subsistent sans être rattachables à quiconque.
+- **Durées de conservation** appliquées par un job quotidien : rendez-vous
+  3 ans, journal des envois 1 an, journal d'audit 3 ans.
+- **Politique de confidentialité** publique, décrivant les données collectées,
+  leurs finalités, leurs destinataires et les durées de conservation.
+- **Limitation de débit** sur la connexion, l'inscription et la réservation.
+- **Politique de sécurité de contenu** complète, plus HSTS en production.
+- Documentation d'exploitation : sauvegarde, restauration vérifiée, tâches
+  planifiées, incidents courants.
+- 542 tests unitaires et d'intégration, 54 parcours de bout en bout.
+
+### Security
+
+- La suppression de compte révoque immédiatement toutes les sessions.
+- L'export de données n'expose jamais l'empreinte du mot de passe, ni les
+  notes internes du salon — elles appartiennent au salon, pas au client.
+- La route de purge est protégée par le même secret que les rappels : une
+  purge déclenchée par un tiers détruirait des données.
+
+### Notes techniques
+
+- **La limitation de débit est en mémoire du processus.** En déploiement
+  multi-instances, la limite effective est multipliée par le nombre
+  d'instances. Un magasin partagé (Redis) est nécessaire à l'échelle ; le
+  compromis est assumé pour cette version.
+- **Index vérifiés** sur 90 000 rendez-vous : les trois requêtes critiques —
+  agenda du salon, disponibilités d'un coiffeur, rendez-vous d'un client —
+  passent toutes par un index.
+
 ### Added — phase 7 : back-office et statistiques
 
 - Statistiques du salon : chiffre d'affaires réalisé et attendu, taux de

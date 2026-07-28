@@ -427,7 +427,7 @@ Estimations en jours-homme pour un développeur seul. Chaque phase se termine pa
 - Export CSV
 - Pagination systématique (aucune liste non paginée au-delà de 50 lignes)
 
-### Phase 8 — Conformité, durcissement, mise en production (5–7 j)
+### Phase 8 — Conformité, durcissement, mise en production (5–7 j) — ✅ livrée
 
 - RGPD : politique de confidentialité, registre des consentements, export et effacement (anonymisation) des données, durées de conservation, DPA Resend et Twilio
 - Sécurité : rate limiting sur auth et réservation, en-têtes CSP/HSTS, `npm audit`, revue `security-auditor`, aucune PII dans les logs
