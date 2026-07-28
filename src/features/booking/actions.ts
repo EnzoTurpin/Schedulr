@@ -1,11 +1,13 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { z } from 'zod'
 import { getAvailability } from '@/features/availability'
 import { requireActor, UnauthenticatedError } from '@/lib/auth/actor'
 import { assertCan } from '@/lib/authz/can'
 import { ForbiddenError, ResourceNotFoundError } from '@/lib/authz/types'
 import { SlotConflictError } from '@/lib/db/errors'
+import { RULES, callerKey, consume } from '@/lib/rateLimit'
 import { cancelBooking } from './cancel'
 import { createBooking } from './create'
 import {
@@ -84,6 +86,13 @@ export async function confirmBooking(raw: unknown): Promise<ConfirmResult> {
   const parsed = confirmSchema.safeParse(raw)
   if (!parsed.success) {
     return { ok: false, error: 'Requête invalide.' }
+  }
+
+  if (!consume(callerKey(await headers(), 'booking'), RULES.booking).allowed) {
+    return {
+      ok: false,
+      error: 'Trop de réservations en peu de temps. Réessayez plus tard.',
+    }
   }
 
   try {

@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { currentActor, landingPath } from '@/lib/auth/actor'
 import { DUMMY_HASH, hashPassword, verifyPassword } from '@/lib/auth/password'
@@ -12,6 +13,7 @@ import {
   setSessionCookie,
 } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/client'
+import { RULES, callerKey, consume, reset } from '@/lib/rateLimit'
 
 /**
  * Actions d'authentification.
@@ -43,10 +45,20 @@ function safeRedirect(target: FormDataEntryValue | null): string | null {
 /** Message unique : ne distingue pas « compte inconnu » de « mot de passe faux ». */
 const INVALID_CREDENTIALS = 'Adresse électronique ou mot de passe incorrect.'
 
+/** Message unique quand le quota est épuisé, sans révéler le compte visé. */
+const TOO_MANY_ATTEMPTS = 'Trop de tentatives. Réessayez dans quelques minutes.'
+
 export async function login(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  // Le quota est consommé avant toute lecture en base : un attaquant ne doit
+  // pas pouvoir parcourir une liste de mots de passe.
+  const key = callerKey(await headers(), 'login')
+  if (!consume(key, RULES.login).allowed) {
+    return { error: TOO_MANY_ATTEMPTS }
+  }
+
   const parsed = loginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
@@ -72,6 +84,10 @@ export async function login(
     return { error: INVALID_CREDENTIALS }
   }
 
+  // Connexion réussie : le compteur repart à zéro, une faute de frappe ne doit
+  // pas pénaliser durablement.
+  reset(key)
+
   const token = await createSession(user.id)
   await setSessionCookie(token)
 
@@ -88,6 +104,10 @@ export async function register(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!consume(callerKey(await headers(), 'register'), RULES.register).allowed) {
+    return { error: TOO_MANY_ATTEMPTS }
+  }
+
   const parsed = registerSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
