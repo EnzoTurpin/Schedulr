@@ -6,8 +6,10 @@ réellement disponible ; les salons gèrent leur agenda, leur équipe et leurs
 prestations depuis un espace professionnel. La plateforme est multi-salons :
 chaque salon est indépendant, avec son gérant et son équipe.
 
-**État** : phase 0 (fondations) terminée. Les écrans utilisateur arrivent à partir
-de la phase 3 — voir [docs/plan-action.md](docs/plan-action.md).
+**État** : version 1.0.0 — les huit phases du
+[plan d'action](docs/plan-action.md) sont livrées. Voir
+[docs/exploitation.md](docs/exploitation.md) avant toute mise en production, et
+en particulier la section « Points ouverts ».
 
 ## Prérequis
 
@@ -78,6 +80,7 @@ vraies personnes. À laisser à `false` en développement et en préproduction.
 | `pnpm db:studio`     | Explorateur de base Prisma              |
 | `pnpm db:seed`       | Peupler la base de développement        |
 | `pnpm db:drift`      | Détecter une dérive schéma / migrations |
+| `pnpm test:e2e`      | Parcours de bout en bout (Playwright)   |
 
 ## Structure
 
