@@ -7,6 +7,30 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Added — phase 7 : back-office et statistiques
+
+- Statistiques du salon : chiffre d'affaires réalisé et attendu, taux de
+  présence, taux de remplissage, prestations les plus demandées, activité par
+  coiffeur, sur une période choisie.
+- Remontée au gérant des notifications restées en échec définitif.
+- Export CSV des rendez-vous, lisible par un tableur français.
+- Back-office plateforme : création et suspension de salons, liste des comptes,
+  journal d'audit, indicateurs globaux. Toutes les listes sont paginées.
+- 510 tests unitaires et d'intégration, 46 parcours de bout en bout.
+
+### Security
+
+- L'export CSV neutralise l'injection de formule : une cellule commençant par
+  `=`, `+`, `-` ou `@` est interprétée par le tableur, et un nom de client
+  malveillant exécuterait du code à l'ouverture du fichier par le gérant.
+- Les exports ne sont jamais mis en cache : ils contiennent des données
+  personnelles.
+
+### Fixed
+
+- Les listes de définition des tableaux de bord contenaient un `<p>` dans un
+  `<div>` enfant de `<dl>`, structure invalide signalée par axe.
+
 ### Added — phase 6 : notifications
 
 - Courriels transactionnels (Resend) : confirmation, annulation, rappel J-1.
