@@ -151,14 +151,24 @@ export default async function AgendaPage({ params, searchParams }: Props) {
           <h1 className="text-2xl font-semibold tracking-tight">{salon.name}</h1>
           <p className="mt-1 text-sm text-slate-600">Agenda du salon</p>
         </div>
-        {can(actor, 'service:manage', resource) && (
-          <Link
-            href={`/pro/${salonId}/configuration`}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm"
-          >
-            Configuration
-          </Link>
-        )}
+        <div className="flex gap-3">
+          {can(actor, 'stats:read', resource) && (
+            <Link
+              href={`/pro/${salonId}/statistiques`}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm"
+            >
+              Statistiques
+            </Link>
+          )}
+          {can(actor, 'service:manage', resource) && (
+            <Link
+              href={`/pro/${salonId}/configuration`}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm"
+            >
+              Configuration
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-8">
