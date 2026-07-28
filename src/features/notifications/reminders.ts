@@ -1,3 +1,5 @@
+import { assertCan } from '@/lib/authz/can'
+import type { Actor } from '@/lib/authz/types'
 import { prisma } from '@/lib/db/client'
 import { dispatch, loadAppointmentSummary, retryFailed } from './dispatch'
 
@@ -94,8 +96,14 @@ export async function sendDueReminders(now = new Date()): Promise<ReminderRun> {
  *
  * Un rappel qui n'est jamais parti est une information que le salon doit avoir :
  * le client viendra peut-être sans avoir été prévenu d'un changement.
+ *
+ * L'autorisation est rejouée ici et pas seulement chez l'appelant : cette
+ * fonction expose des noms de clients, et une fonction de lecture scopée par
+ * salon ne doit jamais dépendre de la vigilance de qui l'appelle (ADR-0002).
  */
-export async function listFailedNotifications(salonId: string, limit = 20) {
+export async function listFailedNotifications(actor: Actor, salonId: string, limit = 20) {
+  assertCan(actor, 'stats:read', { kind: 'salon', salonId })
+
   return prisma.notificationLog.findMany({
     where: { salonId, status: 'FAILED', attempts: { gte: 3 } },
     orderBy: { updatedAt: 'desc' },
