@@ -28,7 +28,12 @@ export default async function PublicLayout({ children }: { children: React.React
       </header>
       {children}
       <footer className="mt-16 border-t border-slate-200 py-8 text-center text-sm text-slate-500">
-        Schedulr — réservation en ligne pour salons de coiffure
+        <p>Schedulr — réservation en ligne pour salons de coiffure</p>
+        <p className="mt-2">
+          <Link href="/confidentialite" className="underline">
+            Politique de confidentialité
+          </Link>
+        </p>
       </footer>
     </div>
   )
