@@ -1,4 +1,5 @@
 import { formatInTimeZone } from 'date-fns-tz'
+import { fr } from 'date-fns/locale'
 
 /**
  * Formatage destiné à l'affichage, en français.
@@ -7,6 +8,22 @@ import { formatInTimeZone } from 'date-fns-tz'
  * partout — un montant présenté différemment d'un écran à l'autre fait douter
  * de sa justesse.
  */
+
+/**
+ * Formate un instant dans le fuseau du salon, en français.
+ *
+ * ⚠️ À utiliser à la place de `formatInTimeZone` dès qu'un motif contient un
+ * nom de jour (`EEE`) ou de mois (`MMM`) : sans locale explicite, date-fns
+ * formate en **anglais**, et l'agenda affichait « Wednesday 16 September » au
+ * milieu d'une interface française.
+ */
+export function formatDate(
+  instant: Date | number,
+  timezone: string,
+  pattern: string,
+): string {
+  return formatInTimeZone(instant, timezone, pattern, { locale: fr })
+}
 
 const EUR = new Intl.NumberFormat('fr-FR', {
   style: 'currency',

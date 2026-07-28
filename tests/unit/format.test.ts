@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   dayName,
+  formatDate,
   formatDateTimeLong,
   formatDayLong,
   formatDuration,
@@ -136,5 +137,24 @@ describe('groupByDay', () => {
 
   it('should return an empty array for no slots', () => {
     expect(groupByDay([], PARIS)).toEqual([])
+  })
+})
+
+describe('formatDate', () => {
+  it('should format day and month names in French', () => {
+    // Sans locale explicite, date-fns formate en anglais : l'agenda affichait
+    // « Wednesday 16 September » au milieu d'une interface française.
+    expect(formatDate(new Date('2026-09-16T12:00:00Z'), PARIS, 'EEEE d MMMM yyyy')).toBe(
+      'mercredi 16 septembre 2026',
+    )
+  })
+
+  it('should format an abbreviated day in French', () => {
+    expect(formatDate(new Date('2026-09-16T12:00:00Z'), PARIS, 'EEE d')).toBe('mer. 16')
+  })
+
+  it('should apply the salon timezone', () => {
+    // 23 h UTC, c'est déjà le lendemain à Paris.
+    expect(formatDate(new Date('2026-09-16T23:00:00Z'), PARIS, 'EEEE')).toBe('jeudi')
   })
 })
