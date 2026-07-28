@@ -410,7 +410,7 @@ Estimations en jours-homme pour un développeur seul. Chaque phase se termine pa
 
 **Fait quand** : un salon est entièrement paramétrable sans intervention technique.
 
-### Phase 6 — Notifications (4–6 j)
+### Phase 6 — Notifications (4–6 j) — ✅ livrée
 
 - Resend : confirmation, modification, annulation, rappel J-1 (React Email)
 - Twilio : confirmation + rappel J-1, opt-in explicite, mention STOP, journal des envois
