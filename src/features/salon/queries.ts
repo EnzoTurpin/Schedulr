@@ -93,6 +93,25 @@ export async function getPublicSalon(slug: string) {
         orderBy: [{ dayOfWeek: 'asc' }, { startMin: 'asc' }],
         select: { dayOfWeek: true, startMin: true, endMin: true },
       },
+      /**
+       * Prestations actives, à plat.
+       *
+       * ⚠️ Ne PAS les lire uniquement via `serviceCategories` : `categoryId`
+       * est nullable, et une prestation sans catégorie serait alors invisible
+       * du public — ni sur cette fiche, ni dans le tunnel de réservation.
+       */
+      services: {
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          durationMin: true,
+          priceCents: true,
+          categoryId: true,
+        },
+      },
       serviceCategories: {
         orderBy: { position: 'asc' },
         select: {
