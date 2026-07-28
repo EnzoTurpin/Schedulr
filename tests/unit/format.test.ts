@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+
+/** Espaces insécables produits par Intl : invisibles dans le code source. */
+const NBSP = /[\u00A0\u202F]/g
 import {
   dayName,
   formatDate,
@@ -17,15 +20,15 @@ describe('formatPrice', () => {
   it('should format an amount in euros with two decimals', () => {
     // Espace insécable étroit avant le symbole : c'est la convention française
     // produite par Intl, à ne pas « corriger » en espace ordinaire.
-    expect(formatPrice(3500).replace(/ | /g, ' ')).toBe('35,00 €')
+    expect(formatPrice(3500).replace(NBSP, ' ')).toBe('35,00 €')
   })
 
   it('should format a non-round amount', () => {
-    expect(formatPrice(4250).replace(/ | /g, ' ')).toBe('42,50 €')
+    expect(formatPrice(4250).replace(NBSP, ' ')).toBe('42,50 €')
   })
 
   it('should format zero', () => {
-    expect(formatPrice(0).replace(/ | /g, ' ')).toBe('0,00 €')
+    expect(formatPrice(0).replace(NBSP, ' ')).toBe('0,00 €')
   })
 })
 
