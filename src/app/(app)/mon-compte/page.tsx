@@ -8,6 +8,7 @@ import {
   type ClientAppointment,
 } from '@/features/booking/queries'
 import { ConsentToggle } from '@/features/notifications/ConsentToggle'
+import { DataPanel } from '@/features/privacy/DataPanel'
 import { getConsents } from '@/features/notifications/consent'
 import { requireActor } from '@/lib/auth/actor'
 import { prisma } from '@/lib/db/client'
@@ -141,6 +142,15 @@ export default async function ClientAreaPage({
             granted={consents.TRANSACTIONAL_SMS}
             hasPhone={Boolean(profile?.phone)}
           />
+        </div>
+      </section>
+
+      <section aria-labelledby="mes-donnees" className="mt-12">
+        <h2 id="mes-donnees" className="text-lg font-semibold">
+          Mes données
+        </h2>
+        <div className="mt-4">
+          <DataPanel />
         </div>
       </section>
 

@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/rappels",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/purge",
+      "schedule": "30 3 * * *"
     }
   ]
 }
