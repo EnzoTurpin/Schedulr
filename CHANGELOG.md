@@ -7,6 +7,33 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Added — phase 4 : agenda professionnel
+
+- Grille d'agenda multi-coiffeurs développée en interne (ADR-0005) : géométrie
+  en fonctions pures, chevauchements répartis en colonnes, y compris sur une
+  chaîne transitive.
+- Navigation clavier complète : flèches pour déplacer, Maj + flèches pour
+  changer de coiffeur, Entrée pour ouvrir le détail.
+- Rendez-vous pris au comptoir ou par téléphone, pour un client sans compte.
+  Le salon peut réserver hors des créneaux publics.
+- Déplacement et redimensionnement, avec mise à jour optimiste **réversible** :
+  le bloc retourne à sa place si la contrainte d'exclusion refuse l'opération.
+- Statuts honoré, absent et annulé, journalisés avec leur transition.
+- Fiche client vue du salon : historique limité à ce salon, compteur de
+  no-shows, note interne invisible du client.
+- 14 tests de bout en bout au total, 371 tests unitaires et d'intégration.
+
+### Fixed
+
+- Les 87 tests d'intégration échouaient en CI : le bloc `env` de Vitest écrase
+  l'environnement du processus, si bien que l'URL déduite de `USER` remplaçait
+  celle du workflow. Un garde-fou refuse désormais toute base dont le nom ne
+  contient pas « test », pour qu'un `.env` chargé localement ne fasse pas
+  effacer la base de développement.
+- La grille portait `role="grid"`, qui impose des enfants `row` et `gridcell`
+  absents de cette disposition — violation WCAG détectée par axe. Remplacé par
+  `role="group"`.
+
 ### Added — phase 3 : réservation client
 
 - Recherche publique de salons et fiche salon rendue côté serveur, avec données
