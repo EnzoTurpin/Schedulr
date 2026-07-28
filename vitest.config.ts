@@ -34,11 +34,21 @@ export default defineConfig({
     // changements d'heure (voir ADR-0003).
     env: {
       TZ: 'UTC',
+
+      /**
+       * Base des tests d'intégration.
+       *
+       * ⚠️ Le bloc `env` de Vitest **écrase** l'environnement du processus : un
+       * `DATABASE_URL` déjà fourni — par la CI notamment — doit donc être
+       * respecté explicitement, sinon il est remplacé par la valeur construite
+       * ici. C'est ce qui faisait échouer les 87 tests d'intégration en CI,
+       * l'URL déduite de `USER` donnant l'utilisateur `runner`, inexistant côté
+       * PostgreSQL.
+       */
       DATABASE_URL:
         process.env.TEST_DATABASE_URL ??
-        'postgresql://' +
-          (process.env.USER ?? 'postgres') +
-          '@localhost:5432/schedulr_test',
+        process.env.DATABASE_URL ??
+        `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/schedulr_test`,
     },
 
     coverage: {
