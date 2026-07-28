@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { formatInTimeZone } from 'date-fns-tz'
 import {
@@ -145,8 +146,20 @@ export default async function AgendaPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">{salon.name}</h1>
-      <p className="mt-1 text-sm text-slate-600">Agenda du salon</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{salon.name}</h1>
+          <p className="mt-1 text-sm text-slate-600">Agenda du salon</p>
+        </div>
+        {can(actor, 'service:manage', resource) && (
+          <Link
+            href={`/pro/${salonId}/configuration`}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm"
+          >
+            Configuration
+          </Link>
+        )}
+      </div>
 
       <div className="mt-8">
         <AgendaBoard

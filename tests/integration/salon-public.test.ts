@@ -153,6 +153,25 @@ describe('fiche publique d’un salon', () => {
     expect(await getPublicSalon('suspendu')).toBeNull()
   })
 
+  it('should expose a service that has no category', async () => {
+    // `categoryId` est nullable et l'écran de configuration propose « sans
+    // catégorie » : lire les prestations uniquement via `serviceCategories`
+    // les rendrait invisibles du public.
+    const salon = await createSalon('atelier')
+    await testDb.service.create({
+      data: {
+        salonId: salon.id,
+        name: 'Sans rubrique',
+        durationMin: 30,
+        priceCents: 2500,
+      },
+    })
+
+    const result = await getPublicSalon('atelier')
+
+    expect(result?.services.map((s) => s.name)).toContain('Sans rubrique')
+  })
+
   it('should hide a deactivated service from the catalogue', async () => {
     const salon = await createSalon('atelier')
     const category = await testDb.serviceCategory.create({
@@ -172,6 +191,7 @@ describe('fiche publique d’un salon', () => {
     const result = await getPublicSalon('atelier')
 
     expect(result?.serviceCategories[0]?.services).toEqual([])
+    expect(result?.services).toEqual([])
   })
 
   it('should only expose bookable members', async () => {

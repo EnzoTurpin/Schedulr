@@ -65,14 +65,12 @@ function structuredData(salon: PublicSalon) {
       opens: formatMinutesOfDay(slot.startMin),
       closes: formatMinutesOfDay(slot.endMin),
     })),
-    makesOffer: salon.serviceCategories.flatMap((category) =>
-      category.services.map((service) => ({
-        '@type': 'Offer',
-        name: service.name,
-        price: (service.priceCents / 100).toFixed(2),
-        priceCurrency: 'EUR',
-      })),
-    ),
+    makesOffer: salon.services.map((service) => ({
+      '@type': 'Offer',
+      name: service.name,
+      price: (service.priceCents / 100).toFixed(2),
+      priceCurrency: 'EUR',
+    })),
   }
 }
 
@@ -111,31 +109,46 @@ export default async function SalonPage({ params }: Props) {
         <h2 id="prestations" className="text-xl font-semibold">
           Prestations
         </h2>
-        {salon.serviceCategories.map((category) => (
-          <div key={category.id} className="mt-6">
-            <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
-              {category.name}
-            </h3>
-            <ul className="mt-2 divide-y divide-slate-200">
-              {category.services.map((service) => (
-                <li key={service.id} className="flex justify-between gap-4 py-3">
-                  <div>
-                    <p className="font-medium">{service.name}</p>
-                    {service.description && (
-                      <p className="text-sm text-slate-500">{service.description}</p>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-medium">{formatPrice(service.priceCents)}</p>
-                    <p className="text-sm text-slate-500">
-                      {formatDuration(service.durationMin)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {/* Les prestations sans catégorie sont regroupées à la fin : sans cela
+            elles n'apparaîtraient nulle part, `categoryId` étant nullable. */}
+        {[
+          ...salon.serviceCategories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            services: salon.services.filter((s) => s.categoryId === category.id),
+          })),
+          {
+            id: 'sans-categorie',
+            name: 'Autres prestations',
+            services: salon.services.filter((s) => s.categoryId === null),
+          },
+        ]
+          .filter((group) => group.services.length > 0)
+          .map((category) => (
+            <div key={category.id} className="mt-6">
+              <h3 className="text-sm font-semibold tracking-wide text-slate-500 uppercase">
+                {category.name}
+              </h3>
+              <ul className="mt-2 divide-y divide-slate-200">
+                {category.services.map((service) => (
+                  <li key={service.id} className="flex justify-between gap-4 py-3">
+                    <div>
+                      <p className="font-medium">{service.name}</p>
+                      {service.description && (
+                        <p className="text-sm text-slate-500">{service.description}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="font-medium">{formatPrice(service.priceCents)}</p>
+                      <p className="text-sm text-slate-500">
+                        {formatDuration(service.durationMin)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
       </section>
 
       <section aria-labelledby="equipe" className="mt-12">

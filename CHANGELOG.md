@@ -7,6 +7,30 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Added — phase 5 : configuration du salon
+
+- Catalogue : catégories, prestations, durées, tarifs, marges de préparation et
+  de remise en état. Une prestation retirée disparaît de la réservation sans
+  rompre les rendez-vous passés qui la référencent.
+- Horaires d'ouverture éditables semaine par semaine, coupures déjeuner
+  comprises, avec refus des plages incohérentes ou qui se chevauchent.
+- Fermetures exceptionnelles, avec comptage des rendez-vous qu'elles rendraient
+  caducs.
+- Équipe : création de membres sans compte, rôles, couleur d'agenda, horaires
+  individuels, congés et affectation des prestations. Désactiver un membre
+  révoque immédiatement toutes ses sessions.
+- Fiche du salon et règles de réservation : délai minimum, horizon,
+  granularité, délai d'annulation, avec validation des combinaisons
+  impossibles.
+- 413 tests unitaires et d'intégration, 30 parcours de bout en bout.
+
+### Fixed
+
+- Les prestations n'étaient exposées au public qu'à travers leurs catégories.
+  `categoryId` étant nullable — et l'écran de configuration proposant
+  explicitement « sans catégorie » — une telle prestation restait invisible sur
+  la fiche salon comme dans le tunnel, donc non réservable.
+
 ### Added — phase 4 : agenda professionnel
 
 - Grille d'agenda multi-coiffeurs développée en interne (ADR-0005) : géométrie
