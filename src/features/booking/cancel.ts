@@ -1,4 +1,5 @@
 import { invalidateSalon } from '@/features/availability'
+import { notify } from '@/features/notifications/dispatch'
 import { assertCan } from '@/lib/authz/can'
 import { ResourceNotFoundError, type Actor } from '@/lib/authz/types'
 import { forSalon } from '@/lib/db/scoped'
@@ -107,4 +108,10 @@ export async function cancelBooking(
   })
 
   invalidateSalon(appointment.salonId)
+
+  // Prévenir le client est utile surtout quand c'est le salon qui annule ; on
+  // notifie dans les deux cas, la trace servant d'accusé de réception.
+  await notify('booking_cancelled', appointment.id).catch((error: unknown) => {
+    console.error('booking_cancelled', { appointmentId: appointment.id, error })
+  })
 }

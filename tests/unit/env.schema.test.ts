@@ -113,6 +113,21 @@ describe('parseServerEnv', () => {
       )
     })
 
+    it('should require the cron secret when notifications are enabled', () => {
+      // Sans lui, la route de rappels serait ouverte : n'importe qui pourrait
+      // déclencher une vague d'envois, chacun facturé.
+      const raw = validEnv({
+        NOTIFICATIONS_ENABLED: 'true',
+        RESEND_API_KEY: 're_test',
+        EMAIL_FROM: 'contact@schedulr.fr',
+        TWILIO_ACCOUNT_SID: 'AC_test',
+        TWILIO_AUTH_TOKEN: 'token_test',
+        TWILIO_PHONE_NUMBER: '+33600000000',
+      })
+
+      expect(() => parseServerEnv(raw)).toThrow(/CRON_SECRET/)
+    })
+
     it('should accept enabled notifications when every credential is present', () => {
       const raw = validEnv({
         NOTIFICATIONS_ENABLED: 'true',
@@ -121,6 +136,7 @@ describe('parseServerEnv', () => {
         TWILIO_ACCOUNT_SID: 'AC_test',
         TWILIO_AUTH_TOKEN: 'token_test',
         TWILIO_PHONE_NUMBER: '+33600000000',
+        CRON_SECRET: 'secret-de-cron-suffisamment-long',
       })
 
       const env = parseServerEnv(raw)

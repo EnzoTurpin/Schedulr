@@ -7,7 +7,10 @@ import {
   listUpcomingAppointments,
   type ClientAppointment,
 } from '@/features/booking/queries'
+import { ConsentToggle } from '@/features/notifications/ConsentToggle'
+import { getConsents } from '@/features/notifications/consent'
 import { requireActor } from '@/lib/auth/actor'
+import { prisma } from '@/lib/db/client'
 import { formatDateTimeLong, formatPrice } from '@/lib/format'
 
 export const metadata: Metadata = { title: 'Mes rendez-vous' }
@@ -79,9 +82,14 @@ export default async function ClientAreaPage({
   const params = await searchParams
   const now = new Date()
 
-  const [upcoming, past] = await Promise.all([
+  const [upcoming, past, consents, profile] = await Promise.all([
     listUpcomingAppointments(actor, now),
     listPastAppointments(actor, { now }),
+    getConsents(actor.userId),
+    prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { phone: true },
+    }),
   ])
 
   return (
@@ -119,6 +127,21 @@ export default async function ClientAreaPage({
             ))}
           </ul>
         )}
+      </section>
+
+      <section aria-labelledby="notifications" className="mt-12">
+        <h2 id="notifications" className="text-lg font-semibold">
+          Notifications
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Les confirmations et rappels par courriel sont toujours envoyés.
+        </p>
+        <div className="mt-4">
+          <ConsentToggle
+            granted={consents.TRANSACTIONAL_SMS}
+            hasPhone={Boolean(profile?.phone)}
+          />
+        </div>
       </section>
 
       {past.items.length > 0 && (

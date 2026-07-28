@@ -1,4 +1,5 @@
 import { getAvailability, invalidateSalon } from '@/features/availability'
+import { notify } from '@/features/notifications/dispatch'
 import { withSlotConflictMapping } from '@/lib/db/errors'
 import { forSalon } from '@/lib/db/scoped'
 import type { Actor } from '@/lib/authz/types'
@@ -161,6 +162,13 @@ export async function createBooking(
   // Sans cette invalidation, le créneau resterait proposé jusqu'à expiration du
   // cache.
   invalidateSalon(input.salonId)
+
+  // La confirmation ne doit jamais faire échouer la réservation : le
+  // rendez-vous est pris, un courriel manquant se rattrape, pas une place
+  // perdue. L'échec est journalisé dans NotificationLog et remonté au gérant.
+  await notify('booking_confirmed', appointment.id).catch((error: unknown) => {
+    console.error('booking_confirmed', { appointmentId: appointment.id, error })
+  })
 
   return {
     appointmentId: appointment.id,
