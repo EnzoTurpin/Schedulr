@@ -33,15 +33,17 @@ export default async function BookingPage({ params }: Props) {
     redirect(`/connexion?suite=${encodeURIComponent(`/reserver/${slug}`)}`)
   }
 
-  const services = salon.serviceCategories.flatMap((category) =>
-    category.services.map((service) => ({
-      id: service.id,
-      name: service.name,
-      durationMin: service.durationMin,
-      priceCents: service.priceCents,
-      categoryName: category.name,
-    })),
-  )
+  // Liste à plat : une prestation sans catégorie doit rester réservable.
+  const categoryNames = new Map(salon.serviceCategories.map((c) => [c.id, c.name]))
+  const services = salon.services.map((service) => ({
+    id: service.id,
+    name: service.name,
+    durationMin: service.durationMin,
+    priceCents: service.priceCents,
+    categoryName: service.categoryId
+      ? (categoryNames.get(service.categoryId) ?? 'Autres prestations')
+      : 'Autres prestations',
+  }))
 
   const members = salon.members.map((member) => ({
     id: member.id,
