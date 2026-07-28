@@ -1,0 +1,94 @@
+// Règles de temps : horaires récurrents, absences, fermetures.
+//
+// Distinction structurante (ADR-0003) :
+//
+//   - Un horaire **récurrent** est une règle locale : « le salon ouvre à 9 h le
+//     mardi ». Il est stocké en minutes depuis minuit, heure locale du salon.
+//     Une règle locale reste vraie de part et d'autre du changement d'heure.
+//
+//   - Une absence ou une fermeture est un **instant** précis, stocké en UTC.
+//
+// Confondre les deux décale silencieusement tous les agendas d'une heure, deux
+// fois par an.
+
+/// Horaires d'ouverture du salon, récurrents par jour de semaine.
+/// Plusieurs plages par jour sont possibles : une coupure de midi se modélise
+/// par deux lignes (9 h–12 h, 14 h–19 h).
+model OpeningHour {
+  id      String @id @default(cuid())
+  salonId String
+
+  /// 0 = dimanche, 6 = samedi (convention `Date.getDay()`).
+  dayOfWeek Int
+
+  /// Minutes depuis minuit, heure locale du salon. 540 = 9 h 00.
+  startMin Int
+  endMin   Int
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([salonId, dayOfWeek])
+}
+
+/// Horaires de travail d'un membre, récurrents. Distincts des horaires du
+/// salon : un coiffeur à temps partiel travaille moins que l'amplitude
+/// d'ouverture, et le moteur de disponibilité prend l'intersection des deux.
+model WorkingHour {
+  id       String @id @default(cuid())
+  salonId  String
+  memberId String
+
+  dayOfWeek Int
+  startMin  Int
+  endMin    Int
+
+  salon  Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  member SalonMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([memberId, dayOfWeek])
+  @@index([salonId])
+}
+
+/// Absence ponctuelle d'un membre : congé, formation, pause exceptionnelle.
+model TimeOff {
+  id       String @id @default(cuid())
+  salonId  String
+  memberId String
+
+  startAt DateTime @db.Timestamptz(3)
+  endAt   DateTime @db.Timestamptz(3)
+  reason  String?
+
+  salon  Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  member SalonMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([memberId, startAt])
+  @@index([salonId, startAt])
+}
+
+/// Fermeture exceptionnelle du salon entier : jour férié, travaux, congés
+/// annuels. S'applique à toute l'équipe.
+model Closure {
+  id      String @id @default(cuid())
+  salonId String
+
+  startAt DateTime @db.Timestamptz(3)
+  endAt   DateTime @db.Timestamptz(3)
+  reason  String?
+
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([salonId, startAt])
+}

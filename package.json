@@ -1,0 +1,85 @@
+{
+  "name": "schedulr",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "postinstall": "prisma generate --schema ./prisma/schema",
+    "dev": "next dev",
+    "build": "prisma generate --schema ./prisma/schema && next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "prisma generate --schema ./prisma/schema",
+    "db:migrate": "prisma migrate dev --schema ./prisma/schema",
+    "db:deploy": "prisma migrate deploy --schema ./prisma/schema",
+    "db:studio": "prisma studio --schema ./prisma/schema",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --schema ./prisma/schema",
+    "db:drift": "prisma migrate diff --from-migrations ./prisma/schema/migrations --to-schema-datamodel ./prisma/schema --shadow-database-url $SHADOW_DATABASE_URL --exit-code",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "prisma": {
+    "schema": "./prisma/schema",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "overrides": {
+      "sharp": ">=0.35.0",
+      "postcss": ">=8.5.18"
+    },
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^6",
+    "clsx": "^2",
+    "date-fns": "^4",
+    "date-fns-tz": "^3",
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19",
+    "tailwind-merge": "^3",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@eslint/eslintrc": "^3.3.6",
+    "@playwright/test": "^1.62.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
+    "@vitest/coverage-v8": "^3",
+    "eslint": "^9",
+    "eslint-config-next": "^15",
+    "eslint-config-prettier": "^10",
+    "prettier": "^3",
+    "prettier-plugin-tailwindcss": "^0.6",
+    "prisma": "^6",
+    "tailwindcss": "^4",
+    "tsx": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vite-tsconfig-paths": "^5",
+    "vitest": "^3"
+  }
+}

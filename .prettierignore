@@ -1,0 +1,10 @@
+node_modules/
+.next/
+coverage/
+pnpm-lock.yaml
+prisma/schema/migrations/
+next-env.d.ts
+src/generated/
+
+# Fichier de conventions de l'équipe : hors du périmètre du formateur.
+CLAUDE.md
