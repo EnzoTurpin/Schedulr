@@ -1,0 +1,39 @@
+# PostgreSQL de développement.
+#
+# Alternative au PostgreSQL installé sur la machine : garantit que toute
+# l'équipe travaille sur la même version majeure que la production, et que la
+# base peut être remise à zéro sans effet de bord.
+#
+#   docker compose up -d
+#   docker compose down -v     # supprime aussi les données
+#
+# La version majeure doit rester alignée sur celle de la préproduction : les
+# contraintes d'exclusion (ADR-0004) et le comportement des fuseaux horaires
+# dépendent du moteur.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: schedulr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: schedulr_dev
+      # Fuseau du conteneur en UTC : la conversion vers l'heure du salon est
+      # faite par l'application (ADR-0003), jamais par la base.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '5432:5432'
+    volumes:
+      - schedulr-pgdata:/var/lib/postgresql/data
+      - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d schedulr_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  schedulr-pgdata:
