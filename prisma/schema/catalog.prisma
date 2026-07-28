@@ -1,0 +1,78 @@
+// Catalogue de prestations.
+
+model ServiceCategory {
+  id      String @id @default(cuid())
+  salonId String
+
+  name     String
+  position Int    @default(0)
+
+  salon    Salon     @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([salonId, name])
+  @@index([salonId, position])
+}
+
+model Service {
+  id         String  @id @default(cuid())
+  salonId    String
+  categoryId String?
+
+  name        String
+  description String?
+
+  /// Durée de référence en minutes. Peut être surchargée par coiffeur via
+  /// StaffService : une coloration prend plus de temps chez un apprenti.
+  durationMin Int
+
+  /// Marges de préparation et de remise en état, exclues du temps facturé mais
+  /// bloquées dans l'agenda (ADR-0003).
+  bufferBeforeMin Int @default(0)
+  bufferAfterMin  Int @default(0)
+
+  /// Prix en centimes. Jamais de flottant sur de la monnaie.
+  priceCents Int
+
+  isActive Boolean @default(true)
+
+  salon    Salon             @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  category ServiceCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  staff    StaffService[]
+  items    AppointmentItem[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([salonId, isActive])
+  @@index([categoryId])
+}
+
+/// Affectation d'une prestation à un coiffeur, avec surcharge éventuelle de la
+/// durée et du prix. L'absence de ligne signifie que le coiffeur ne réalise
+/// pas cette prestation — c'est ce qui permet de résoudre « n'importe quel
+/// coiffeur » en ne retenant que ceux qui réalisent *toutes* les prestations
+/// demandées.
+model StaffService {
+  salonId   String
+  memberId  String
+  serviceId String
+
+  /// Nul ⇒ on retient la valeur portée par Service.
+  durationMin Int?
+  priceCents  Int?
+
+  salon   Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  member  SalonMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  service Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([memberId, serviceId])
+  @@index([salonId])
+  @@index([serviceId])
+}

@@ -1,0 +1,111 @@
+// Salons (tenants) et membres d'équipe.
+
+model Salon {
+  id   String @id @default(cuid())
+  slug String @unique
+
+  name        String
+  description String?
+
+  /// Fuseau du salon. Les horaires récurrents sont exprimés en minutes locales
+  /// et convertis vers UTC à ce fuseau au moment du calcul (ADR-0003).
+  timezone String @default("Europe/Paris")
+
+  address    String
+  city       String
+  postalCode String
+  country    String  @default("FR")
+  latitude   Float?
+  longitude  Float?
+
+  phone String?
+  email String?
+
+  /// Un salon est créé inactif : l'administrateur plateforme l'active après
+  /// vérification. Un salon inactif n'apparaît pas dans la recherche publique
+  /// et n'accepte aucune réservation.
+  isActive Boolean @default(false)
+
+  // --- Règles de réservation (ADR-0003) --------------------------------
+  /// Délai minimum entre maintenant et le début d'un rendez-vous réservé en
+  /// ligne. Évite qu'un client réserve pour dans cinq minutes.
+  bookingLeadTimeMin Int @default(120)
+
+  /// Horizon maximum de réservation, en jours.
+  bookingHorizonDays Int @default(60)
+
+  /// Granularité des créneaux proposés, en minutes.
+  slotStepMin Int @default(15)
+
+  /// Délai avant le rendez-vous en deçà duquel le client ne peut plus annuler
+  /// lui-même.
+  cancellationDeadlineHours Int @default(24)
+
+  members           SalonMember[]
+  serviceCategories ServiceCategory[]
+  services          Service[]
+  staffServices     StaffService[]
+  openingHours      OpeningHour[]
+  workingHours      WorkingHour[]
+  timeOff           TimeOff[]
+  closures          Closure[]
+  appointments      Appointment[]
+  appointmentItems  AppointmentItem[]
+  notifications     NotificationLog[]
+  auditLogs         AuditLog[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([city, isActive])
+}
+
+enum SalonRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+/// Membre d'un salon : gérant, manager ou coiffeur.
+///
+/// `userId` est nullable à dessein : un salon peut créer la fiche d'un
+/// coiffeur — et donc son agenda — avant que celui-ci ait un compte. Sans
+/// cela, l'onboarding d'un salon serait bloqué par la création de comptes
+/// pour toute l'équipe.
+model SalonMember {
+  id      String  @id @default(cuid())
+  salonId String
+  userId  String?
+
+  role SalonRole @default(STAFF)
+
+  /// Nom affiché aux clients, indépendant du nom du compte : un coiffeur peut
+  /// exercer sous un prénom seul.
+  displayName String
+  bio         String?
+  avatarUrl   String?
+
+  /// Couleur de sa colonne dans l'agenda, au format hexadécimal.
+  color String @default("#8b5cf6")
+
+  /// Un manager peut travailler sans être réservable en ligne.
+  isBookable Boolean @default(true)
+
+  /// Désactivé plutôt que supprimé : ses rendez-vous passés doivent rester
+  /// rattachés à lui.
+  isActive Boolean @default(true)
+
+  salon        Salon          @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  services     StaffService[]
+  workingHours WorkingHour[]
+  timeOff      TimeOff[]
+  appointments Appointment[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  /// Un utilisateur ne peut occuper qu'un rôle par salon.
+  @@unique([salonId, userId])
+  @@index([salonId, isActive])
+}
