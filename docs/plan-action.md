@@ -400,7 +400,7 @@ Estimations en jours-homme pour un développeur seul. Chaque phase se termine pa
 
 **Fait quand** : un gérant gère une journée complète sans passer par la base.
 
-### Phase 5 — Configuration du salon (5–6 j)
+### Phase 5 — Configuration du salon (5–6 j) — ✅ livrée
 
 - Services et catégories, durées, tarifs, buffers
 - Horaires d'ouverture, fermetures exceptionnelles, jours fériés
