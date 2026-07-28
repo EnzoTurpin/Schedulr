@@ -7,6 +7,34 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Faille XSS stockée sur la fiche salon publique.** `JSON.stringify` n'échappe
+  pas la séquence `</script>` : le parseur HTML ferme la balise dès qu'il la
+  rencontre, y compris au milieu d'une chaîne JSON. Les champs sérialisés dans
+  les données structurées — nom du salon, description, biographies — étant
+  saisis librement par le gérant, celui-ci pouvait exécuter du script chez tout
+  visiteur de sa fiche. Signalée par l'audit de sécurité.
+- **Les pages publiques étaient interdites d'indexation.** La directive
+  `noindex` posée en phase 0 n'avait jamais été levée, alors que le
+  référencement des fiches salon est le principal canal d'acquisition
+  (ADR-0001). Score Lighthouse SEO : 54 → 100.
+- `listFailedNotifications` rejoue désormais son autorisation au lieu de s'en
+  remettre à l'appelant.
+- Comparaison du secret de cron à temps constant.
+
+### Added
+
+- `robots.txt`, `sitemap.xml` et favicon.
+- ADR-0006 : stockage des images par service objet, avec téléversement direct.
+
+### Mesures
+
+- Lighthouse sur la fiche salon : **100 / 100 / 100 / 100** (performance,
+  accessibilité, bonnes pratiques, référencement).
+- Audit de sécurité : cloisonnement multi-tenant, autorisations et
+  authentification sans faille exploitable identifiée.
+
 ## [1.0.0] - 2026-07-29
 
 ### Added — phase 8 : conformité et durcissement
