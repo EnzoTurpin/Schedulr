@@ -420,7 +420,7 @@ Estimations en jours-homme pour un développeur seul. Chaque phase se termine pa
 
 **Fait quand** : les tests d'intégration prouvent qu'un rappel n'est envoyé qu'une fois, même si le job tourne deux fois.
 
-### Phase 7 — Back-office plateforme & statistiques (4–5 j)
+### Phase 7 — Back-office plateforme & statistiques (4–5 j) — ✅ livrée
 
 - Admin : création/suspension de salons, liste des comptes, journal d'audit, indicateurs globaux
 - Stats salon : taux de remplissage, chiffre d'affaires prévisionnel, no-shows, top prestations, activité par coiffeur
