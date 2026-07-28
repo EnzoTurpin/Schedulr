@@ -53,6 +53,15 @@ export const serverEnvSchema = z.object({
   TWILIO_PHONE_NUMBER: z.string().min(1).optional(),
 
   /**
+   * Secret protégeant les routes déclenchées par l'ordonnanceur.
+   *
+   * Sans lui, n'importe qui pourrait provoquer une vague de rappels — et
+   * chaque SMS est facturé. Optionnel tant que les notifications sont
+   * désactivées ; exigé dès que le coupe-circuit est armé.
+   */
+  CRON_SECRET: z.string().min(16).optional(),
+
+  /**
    * Coupe-circuit d'envoi. Laissé à `false`, aucun courriel ni SMS ne part :
    * indispensable en préproduction pour ne pas écrire à de vrais clients.
    */
@@ -112,6 +121,7 @@ export function parseServerEnv(raw: RawEnv): ServerEnv {
         ['TWILIO_ACCOUNT_SID', env.TWILIO_ACCOUNT_SID],
         ['TWILIO_AUTH_TOKEN', env.TWILIO_AUTH_TOKEN],
         ['TWILIO_PHONE_NUMBER', env.TWILIO_PHONE_NUMBER],
+        ['CRON_SECRET', env.CRON_SECRET],
       ] as const
     )
       .filter(([, value]) => !value)

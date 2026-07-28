@@ -56,7 +56,9 @@
     "next": "^15",
     "react": "^19",
     "react-dom": "^19",
+    "resend": "^6.18.1",
     "tailwind-merge": "^3",
+    "twilio": "^6.0.2",
     "zod": "^4"
   },
   "devDependencies": {

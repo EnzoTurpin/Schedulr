@@ -7,6 +7,33 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [Unreleased]
 
+### Added — phase 6 : notifications
+
+- Courriels transactionnels (Resend) : confirmation, annulation, rappel J-1.
+  HTML et texte brut, contenu échappé.
+- SMS (Twilio) sur les mêmes évènements, soumis à un consentement explicite et
+  portant la mention d'opposition.
+- **Idempotence garantie par la base** : la clé
+  `rendez-vous:gabarit:canal` est réservée avant l'envoi, si bien qu'un job
+  rejoué ou deux exécutions concurrentes ne produisent jamais de doublon.
+- Rappel J-1 déclenché toutes les heures sur une fenêtre glissante de deux
+  heures, route protégée par un secret partagé.
+- Reprise sur échec : trois tentatives, seuls les incidents transitoires sont
+  rejoués. Les échecs définitifs sont consultables par le salon.
+- Registre des consentements historisé, exigé par le RGPD.
+- 463 tests unitaires et d'intégration, 35 parcours de bout en bout.
+
+### Security
+
+- Le journal des envois ne contient **aucune donnée personnelle** : le
+  destinataire y est stocké haché en SHA-256.
+- `CRON_SECRET` devient obligatoire dès que les notifications sont activées :
+  sans lui la route de rappels serait ouverte, et chaque SMS est facturé.
+
+### Dependencies
+
+- Ajout de `resend` et `twilio` en dépendances de production.
+
 ### Added — phase 5 : configuration du salon
 
 - Catalogue : catégories, prestations, durées, tarifs, marges de préparation et
