@@ -389,7 +389,7 @@ Estimations en jours-homme pour un développeur seul. Chaque phase se termine pa
 
 **Fait quand** : un parcours E2E Playwright réserve, reçoit la confirmation, annule.
 
-### Phase 4 — Agenda professionnel (8–11 j)
+### Phase 4 — Agenda professionnel (8–11 j) — ✅ livrée
 
 - Grille CSS Grid : vue jour multi-coiffeurs, vue semaine par coiffeur
 - Création / déplacement / redimensionnement avec revalidation serveur
