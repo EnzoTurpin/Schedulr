@@ -73,3 +73,21 @@ Aucun appel de données, aucune logique métier, aucun accès à la session dans
 - Tests de composant sur le calcul de position et la disposition des chevauchements (fonctions pures, testables sans DOM).
 - Parcours Playwright : créer par glisser, déplacer, redimensionner, avec un cas de conflit `409` vérifiant le retour visuel à la position d'origine (voir ADR-0004).
 - `@axe-core/playwright` sans violation bloquante, et parcours clavier complet de bout en bout.
+
+## Amendement du 2026-07-29 — le glisser-déposer est retiré
+
+Cet ADR retenait le glisser-déposer comme geste principal de déplacement, et l'estimait à lui seul une part notable des 4 à 6 jours prévus. Il a été livré, puis retiré.
+
+**Ce que l'usage a montré.** Cliquer pour consulter et tirer pour déplacer sont deux gestes trop proches. Sur une grille dense — le seed d'un salon réel compte une dizaine de rendez-vous par jour et par coiffeur —, un simple tremblement de souris décale un rendez-vous. La conséquence n'est pas cosmétique : un client se présente à une heure qui n'est plus la sienne. Le retour visuel réversible imposé par l'ADR-0004 avertit d'un refus, mais reste muet quand le déplacement accidentel est **valide**.
+
+**Ce qui remplace.** Un clic ouvre la fenêtre du rendez-vous ; l'horaire, la durée et le coiffeur s'y modifient par des champs, et un bouton confirme. Le déplacement devient un acte délibéré.
+
+Trois effets, tous favorables :
+
+1. **Souris et clavier deviennent équivalents.** Le déplacement au clavier avait dû être écrit à part (`Maj + flèches`, `Alt + flèches`), avec ses propres cas de bord. Il disparaît : les deux entrées passent désormais par la même fenêtre. Les flèches ne servent plus qu'à parcourir les rendez-vous.
+2. **`@dnd-kit` n'est plus nécessaire.** La grille n'a jamais eu besoin d'en dépendre — le glisser était écrit sur les évènements de pointeur —, mais la question ne se pose plus.
+3. **Le composant maigrit.** `CalendarGrid` perd la gestion d'état du glissement, les poignées de redimensionnement et leurs seuils de hauteur.
+
+**Ce que cela coûte.** Déplacer un rendez-vous demande trois interactions au lieu d'un geste : ouvrir, cliquer « Déplacer », saisir. C'est plus lent pour un salon qui réorganise beaucoup sa journée. Ce coût est assumé : la lenteur se rattrape, un rendez-vous décalé à l'insu du salon ne se rattrape pas.
+
+**Ce que cet amendement ne remet pas en cause.** L'interface étroite du composant, condition de réversibilité, demeure : `CalendarGrid` reçoit des ressources et des évènements, et émet `onSelect` et `onCreate`. Les tests Playwright couvrent désormais le déplacement par la fenêtre, y compris le cas de conflit et le retour à la position d'origine.
