@@ -128,6 +128,24 @@ test('la gérante marque un client absent, ce qui libère le créneau', async ({
     .toBe('NO_SHOW')
 })
 
+test('la fenêtre d’un rendez-vous s’ouvre centrée', async ({ page }) => {
+  // Le navigateur centre une fenêtre modale par `margin: auto`, que le reset
+  // de Tailwind écrase avec `margin: 0` : sans correctif, elle s'ancrait en
+  // haut à gauche.
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  await page.setViewportSize({ width: 1280, height: 800 })
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: /Madame Durand/ }).click()
+
+  const box = await page.getByRole('dialog').boundingBox()
+  expect(box).not.toBeNull()
+  // Une tolérance de deux pixels absorbe les arrondis de rendu.
+  expect(Math.abs(box!.x + box!.width / 2 - 640)).toBeLessThanOrEqual(2)
+  expect(Math.abs(box!.y + box!.height / 2 - 400)).toBeLessThanOrEqual(2)
+})
+
 test('la gérante déplace un rendez-vous depuis sa fenêtre', async ({ page }) => {
   // Le glisser-déposer a été retiré : décaler un rendez-vous d'un tremblement
   // de souris coûtait trop cher. Le déplacement est désormais un acte explicite.

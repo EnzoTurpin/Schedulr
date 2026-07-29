@@ -36,6 +36,13 @@
     @apply bg-white font-sans text-slate-900 antialiased;
   }
 
+  /* Le navigateur centre une fenêtre modale par `margin: auto`. Le reset de
+     Tailwind applique `margin: 0` à tous les éléments, ce qui l'ancrait en
+     haut à gauche. On restaure le centrage, sans toucher au reste du reset. */
+  dialog:modal {
+    margin: auto;
+  }
+
   /* Anneau de focus visible sur tout élément atteint au clavier : exigence
      d'accessibilité, ne pas neutraliser. */
   :focus-visible {
