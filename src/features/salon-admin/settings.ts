@@ -31,6 +31,8 @@ export type BookingSettingsInput = {
   slotStepMin: number
   /** Délai avant lequel le client peut encore annuler, en heures. */
   cancellationDeadlineHours: number
+  /** Plafond mensuel de SMS. Zéro désactive le canal. */
+  smsMonthlyQuota: number
 }
 
 export class InvalidSettingsError extends Error {
@@ -63,6 +65,7 @@ export async function getSalonSettings(actor: Actor, salonId: string) {
       bookingHorizonDays: true,
       slotStepMin: true,
       cancellationDeadlineHours: true,
+      smsMonthlyQuota: true,
     },
   })
 }
@@ -111,6 +114,11 @@ export function validateBookingSettings(input: BookingSettingsInput): void {
   ) {
     throw new InvalidSettingsError(
       `Le pas doit valoir ${ALLOWED_SLOT_STEPS.join(', ')} minutes.`,
+    )
+  }
+  if (input.smsMonthlyQuota < 0 || input.smsMonthlyQuota > 100_000) {
+    throw new InvalidSettingsError(
+      'Le plafond de SMS doit être compris entre 0 et 100 000 par mois.',
     )
   }
   if (input.cancellationDeadlineHours < 0 || input.cancellationDeadlineHours > 168) {

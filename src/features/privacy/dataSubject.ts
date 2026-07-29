@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '@/lib/db/client'
+import { purgeExpiredTokens } from '@/lib/auth/magicLink'
 import { revokeAllSessions } from '@/lib/auth/session'
 import type { Actor } from '@/lib/authz/types'
 
@@ -214,6 +215,8 @@ export type PurgeReport = {
   notifications: number
   auditEntries: number
   accounts: number
+  /** Liens de connexion périmés. */
+  tokens: number
 }
 
 /**
@@ -249,10 +252,14 @@ export async function purgeExpiredData(now = new Date()): Promise<PurgeReport> {
     },
   })
 
+  // Les liens de connexion expirés ne servent plus à rien et s'accumulent.
+  const tokens = await purgeExpiredTokens(now)
+
   return {
     appointments: appointments.count,
     notifications: notifications.count,
     auditEntries: auditEntries.count,
     accounts: accounts.count,
+    tokens,
   }
 }

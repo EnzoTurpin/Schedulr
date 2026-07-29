@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   deactivateMemberAction,
+  inviteMemberAction,
+  revokeInvitationAction,
   saveMemberAction,
   setMemberServicesAction,
 } from './actions'
@@ -29,10 +31,18 @@ type Member = {
   services: { serviceId: string }[]
 }
 
+type Invitation = {
+  id: string
+  memberId: string
+  email: string
+  expiresAt: Date
+}
+
 type Props = {
   salonId: string
   members: Member[]
   services: { id: string; name: string }[]
+  invitations: Invitation[]
 }
 
 const ROLE_LABELS: Record<Member['role'], string> = {
@@ -43,10 +53,11 @@ const ROLE_LABELS: Record<Member['role'], string> = {
 
 const DEFAULT_COLOR = '#8b5cf6'
 
-export function TeamPanel({ salonId, members, services }: Props) {
+export function TeamPanel({ salonId, members, services, invitations }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState<Member | 'new' | null>(null)
   const [assigning, setAssigning] = useState<Member | null>(null)
+  const [inviting, setInviting] = useState<Member | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -264,6 +275,17 @@ export function TeamPanel({ salonId, members, services }: Props) {
                   >
                     Prestations
                   </button>
+                  {!member.userId && (
+                    <button
+                      type="button"
+                      onClick={() => setInviting(member)}
+                      className="underline"
+                    >
+                      {invitations.some((i) => i.memberId === member.id)
+                        ? 'Relancer'
+                        : 'Inviter'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() =>
@@ -282,6 +304,76 @@ export function TeamPanel({ salonId, members, services }: Props) {
               prestation
               {member.services.length > 1 ? 's' : ''}
             </p>
+
+            {inviting?.id === member.id && (
+              <form
+                action={(formData) =>
+                  run(
+                    () =>
+                      inviteMemberAction({
+                        salonId,
+                        memberId: member.id,
+                        email: String(formData.get('email') ?? ''),
+                      }),
+                    () => setInviting(null),
+                  )
+                }
+                className="mt-4 rounded-md bg-slate-50 p-4"
+              >
+                <label htmlFor={`invite-${member.id}`} className="text-sm font-medium">
+                  Adresse électronique de {member.displayName}
+                </label>
+                <p className="mt-1 text-xs text-slate-500">
+                  Un lien lui sera envoyé pour rattacher son compte à cette fiche.
+                  L’invitation expire dans sept jours.
+                </p>
+                <input
+                  id={`invite-${member.id}`}
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={
+                    invitations.find((i) => i.memberId === member.id)?.email ?? ''
+                  }
+                  className="mt-2 w-full max-w-sm rounded-md border border-slate-300 px-3 py-2"
+                />
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="bg-brand-600 hover:bg-brand-700 rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    Envoyer l’invitation
+                  </button>
+                  {invitations.some((i) => i.memberId === member.id) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        run(
+                          () =>
+                            revokeInvitationAction({
+                              salonId,
+                              memberId: member.id,
+                            }),
+                          () => setInviting(null),
+                        )
+                      }
+                      className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700"
+                    >
+                      Annuler l’invitation
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setInviting(null)}
+                    className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </form>
+            )}
 
             {assigning?.id === member.id && (
               <form

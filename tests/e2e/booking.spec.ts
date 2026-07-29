@@ -120,7 +120,7 @@ test('un visiteur non connecté est renvoyé vers la connexion puis revient au t
 
   await page.getByLabel('Adresse électronique').fill(CLIENT_EMAIL)
   await page.getByLabel('Mot de passe').fill(CLIENT_PASSWORD)
-  await page.getByRole('button', { name: 'Se connecter' }).click()
+  await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
 
   // La destination d'origine est honorée, plutôt que l'espace client.
   await expect(page).toHaveURL(new RegExp(`/reserver/${SALON_SLUG}$`))

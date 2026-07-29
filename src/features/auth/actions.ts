@@ -3,7 +3,14 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { currentActor, landingPath } from '@/lib/auth/actor'
+import { buildMagicLinkEmail, sendAuthEmail } from '@/features/notifications/authEmails'
+import {
+  consumeMagicLinkToken,
+  createMagicLinkToken,
+  normalizeEmail,
+} from '@/lib/auth/magicLink'
 import { DUMMY_HASH, hashPassword, verifyPassword } from '@/lib/auth/password'
+import { safeRedirect } from '@/lib/auth/safeRedirect'
 import { loginSchema, registerSchema } from '@/lib/auth/schemas'
 import {
   clearSessionCookie,
@@ -27,20 +34,7 @@ import { RULES, callerKey, consume, reset } from '@/lib/rateLimit'
  *  2. **Ne jamais journaliser d'adresse ni de mot de passe** (CLAUDE.md).
  */
 
-export type ActionState = { error: string | null }
-
-/**
- * Valide la destination de retour après connexion.
- *
- * Seuls les chemins internes sont acceptés : une URL absolue permettrait une
- * redirection ouverte vers un site tiers, technique classique d'hameçonnage.
- * `//evil.com` est un chemin relatif au protocole et doit être refusé aussi.
- */
-function safeRedirect(target: FormDataEntryValue | null): string | null {
-  if (typeof target !== 'string' || target.length === 0) return null
-  if (!target.startsWith('/') || target.startsWith('//')) return null
-  return target
-}
+export type ActionState = { error: string | null; sent?: boolean }
 
 /** Message unique : ne distingue pas « compte inconnu » de « mot de passe faux ». */
 const INVALID_CREDENTIALS = 'Adresse électronique ou mot de passe incorrect.'
@@ -159,4 +153,87 @@ export async function logout(): Promise<never> {
   }
   await clearSessionCookie()
   redirect('/connexion')
+}
+
+/**
+ * Demande un lien de connexion.
+ *
+ * La réponse est **toujours** la même, que l'adresse existe ou non : distinguer
+ * les deux cas permettrait d'énumérer les comptes.
+ */
+export async function requestMagicLink(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const email = normalizeEmail(String(formData.get('email') ?? ''))
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: 'Adresse électronique invalide.' }
+  }
+
+  // Quota partagé avec la connexion par mot de passe : sans lui, cette route
+  // deviendrait un moyen d'inonder une boîte de réception.
+  if (!consume(callerKey(await headers(), 'login'), RULES.login).allowed) {
+    return { error: TOO_MANY_ATTEMPTS }
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, deletedAt: true },
+  })
+
+  // Un compte anonymisé ne reçoit rien, mais le message reste identique.
+  if (user && user.deletedAt === null) {
+    const token = await createMagicLinkToken(email)
+    await sendAuthEmail(buildMagicLinkEmail(email, token))
+  }
+
+  return { error: null, sent: true }
+}
+
+/**
+ * Consomme un lien de connexion et ouvre une session.
+ *
+ * Rend le jeton de session plutôt que de poser le cookie : l'appelant est un
+ * route handler, et un cookie posé via `cookies()` n'est pas attaché à une
+ * réponse de redirection construite à la main. C'est donc à lui de l'écrire
+ * sur la réponse.
+ *
+ * @returns le jeton et la destination, ou `null` si le lien est invalide.
+ */
+export async function consumeMagicLink(
+  token: string,
+): Promise<{ sessionToken: string; destination: string } | null> {
+  const email = await consumeMagicLinkToken(token)
+  if (!email) return null
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      deletedAt: true,
+      role: true,
+      memberships: {
+        select: { salonId: true, id: true, role: true, isActive: true },
+      },
+    },
+  })
+
+  if (!user || user.deletedAt !== null) return null
+
+  return {
+    sessionToken: await createSession(user.id),
+    // L'appartenance est lue ici : `currentActor` s'appuie sur le cookie, qui
+    // n'existe pas encore à ce stade.
+    destination: landingPath({
+      userId: user.id,
+      role: user.role,
+      memberships: user.memberships.map((membership) => ({
+        salonId: membership.salonId,
+        memberId: membership.id,
+        role: membership.role,
+        isActive: membership.isActive,
+      })),
+    }),
+  }
 }

@@ -25,6 +25,7 @@ type Salon = {
   bookingHorizonDays: number
   slotStepMin: number
   cancellationDeadlineHours: number
+  smsMonthlyQuota: number
 }
 
 export function SettingsPanel({ salon }: { salon: Salon }) {
@@ -220,6 +221,7 @@ export function SettingsPanel({ salon }: { salon: Salon }) {
                   cancellationDeadlineHours: Number(
                     formData.get('cancellationDeadlineHours'),
                   ),
+                  smsMonthlyQuota: Number(formData.get('smsMonthlyQuota')),
                 }),
               'Règles enregistrées.',
             )
@@ -279,6 +281,27 @@ export function SettingsPanel({ salon }: { salon: Salon }) {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="smsMonthlyQuota" className="text-sm font-medium">
+                Plafond de SMS par mois
+              </label>
+              <input
+                id="smsMonthlyQuota"
+                name="smsMonthlyQuota"
+                type="number"
+                min={0}
+                max={100000}
+                required
+                defaultValue={salon.smsMonthlyQuota}
+                aria-describedby="aide-sms"
+                className="rounded-md border border-slate-300 px-3 py-2"
+              />
+              <p id="aide-sms" className="text-xs text-slate-500">
+                Chaque SMS est facturé. Au-delà du plafond, seuls les courriels partent.
+                Zéro désactive les SMS.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

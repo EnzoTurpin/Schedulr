@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { NotificationChannel } from '@/generated/prisma'
 import { prisma } from '@/lib/db/client'
 import { emailProvider, smsProvider } from '@/services/notificationProviders'
+import { canSendSms } from './smsQuota'
 import { buildEmail, buildSms } from './templates'
 import type { AppointmentSummary, SendResult, TemplateId } from './types'
 
@@ -38,7 +39,7 @@ export function idempotencyKey(
 
 export type DispatchOutcome =
   | { status: 'sent'; providerId: string | null }
-  | { status: 'skipped'; reason: 'already_sent' | 'no_recipient' }
+  | { status: 'skipped'; reason: 'already_sent' | 'no_recipient' | 'quota_exceeded' }
   | { status: 'failed'; error: string; willRetry: boolean }
 
 /**
@@ -61,6 +62,12 @@ export async function dispatch(
   // surtout aucune ligne de journal — ce n'est pas un échec.
   if (!message) {
     return { status: 'skipped', reason: 'no_recipient' }
+  }
+
+  // Plafond mensuel atteint : le SMS est abandonné, jamais le courriel. Un
+  // salon qui dépasse son quota doit continuer d'informer ses clients.
+  if (channel === 'SMS' && !(await canSendSms(appointment.salonId))) {
+    return { status: 'skipped', reason: 'quota_exceeded' }
   }
 
   const key = idempotencyKey(appointment.appointmentId, template, channel)

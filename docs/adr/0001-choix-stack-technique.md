@@ -31,7 +31,7 @@ Nous retenons l'option **(a)** :
 | Langage          | TypeScript en mode `strict`                          |
 | Base de données  | PostgreSQL (Neon en préproduction, Docker en local)  |
 | ORM              | Prisma                                               |
-| Authentification | Auth.js v5, sessions persistées en base              |
+| Authentification | Flux maison, sessions persistées en base             |
 | Interface        | Tailwind CSS + shadcn/ui                             |
 | Validation       | Zod, partagée entre formulaires et frontière serveur |
 | Tests            | Vitest (unitaire, intégration), Playwright (E2E)     |
@@ -56,4 +56,20 @@ Contrainte d'architecture associée : **la logique métier vit dans `src/feature
 
 **Neutres**
 
-- Auth.js v5 en sessions base de données plutôt qu'en JWT : révocation immédiate possible (important pour désactiver un employé qui quitte le salon), au prix d'une lecture en base par requête authentifiée.
+- Sessions en base de données plutôt qu'en JWT : révocation immédiate possible (important pour désactiver un employé qui quitte le salon), au prix d'une lecture en base par requête authentifiée.
+
+## Amendement du 2026-07-29 — l'authentification est écrite à la main
+
+La version initiale de cet ADR retenait **Auth.js v5**. Il n'a jamais été installé, et ce n'est pas un oubli : la phase 1 a constaté que son adaptateur Prisma impose le mode JWT dès qu'on utilise les fournisseurs par identifiants, ce qui contredisait la propriété même pour laquelle nous voulions des sessions en base — la révocation immédiate. Choisir Auth.js aurait donc coûté la garantie qui motivait le choix.
+
+Le flux est écrit à la main, sur trois modules :
+
+| Module                      | Rôle                                                     |
+| --------------------------- | -------------------------------------------------------- |
+| `src/lib/auth/password.ts`  | Argon2id, avec vérification factice contre l'énumération |
+| `src/lib/auth/session.ts`   | Jeton aléatoire, stocké haché en SHA-256, cookie strict  |
+| `src/lib/auth/magicLink.ts` | Liens de connexion à usage unique, quinze minutes        |
+
+L'ensemble tient en quelques centaines de lignes, entièrement couvertes par les tests. Aucune fonctionnalité d'Auth.js ne manque au périmètre V1 : il n'y a ni fournisseur OAuth, ni fédération d'identité.
+
+**Ce que cet amendement coûte.** Le code d'authentification est désormais le nôtre : aucune communauté ne corrigera une faille à notre place, et l'ajout d'un fournisseur OAuth — Google, Facebook — demandera un travail qu'Auth.js aurait fourni. C'est le prix assumé de la révocation immédiate. Si un besoin OAuth apparaît, la question devra être rouverte : Auth.js pourra alors cohabiter en ne gérant que la fédération, les sessions restant les nôtres.
