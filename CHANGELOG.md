@@ -5,6 +5,41 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.1.0] - 2026-07-29
+
+### Added
+
+- **Connexion par lien à usage unique.** Une adresse suffit : le lien reçu par
+  courriel ouvre la session, expire en quinze minutes et ne sert qu'une fois.
+  Le jeton est stocké haché ; la réponse est identique que le compte existe ou
+  non, pour ne pas permettre d'énumérer les comptes.
+- **Invitations d'équipe.** Un gérant rattache un compte à une fiche de membre
+  déjà créée — la fiche, ses horaires et ses rendez-vous préexistent à
+  l'invitation. Le lien vise une adresse précise : transféré, il ne donne aucun
+  accès.
+- **Plafond mensuel de SMS par salon** (`smsMonthlyQuota`, 500 par défaut,
+  réglable dans les paramètres). Seuls les envois réussis sont décomptés. Ferme
+  le seul poste de dépense non maîtrisé du produit.
+
+### Changed
+
+- La destination mémorisée à la connexion conserve la chaîne de requête. Sans
+  cela, une personne non connectée cliquant sur son lien d'invitation perdait
+  le jeton en passant par le formulaire de connexion.
+- ADR-0001 amendé : l'authentification est écrite à la main, Auth.js n'ayant
+  jamais été installé. Son adaptateur Prisma impose le mode JWT avec les
+  identifiants, ce qui aurait supprimé la révocation immédiate — la propriété
+  même qui motivait des sessions en base.
+
+### Security
+
+- `safeRedirect` refuse désormais les chemins commençant par `/\`, que les
+  navigateurs résolvent comme des URL absolues au même titre que `//`. Extrait
+  dans `src/lib/auth/safeRedirect.ts` et couvert par des tests.
+- La consommation d'un lien de connexion départage deux appels concurrents sur
+  la suppression du jeton, et non sur sa lecture : un lien intercepté n'ouvre
+  jamais deux sessions.
+
 ## [1.0.1] - 2026-07-29
 
 ### Fixed

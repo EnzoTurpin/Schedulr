@@ -41,6 +41,13 @@ model Salon {
   /// lui-même.
   cancellationDeadlineHours Int @default(24)
 
+  /// Nombre maximal de SMS par mois calendaire.
+  ///
+  /// Chaque SMS est facturé : sans plafond, un salon très fréquenté — ou une
+  /// boucle défectueuse — produirait une facture non maîtrisée. Zéro désactive
+  /// entièrement le canal SMS pour ce salon.
+  smsMonthlyQuota Int @default(500)
+
   members           SalonMember[]
   serviceCategories ServiceCategory[]
   services          Service[]
@@ -53,6 +60,7 @@ model Salon {
   appointmentItems  AppointmentItem[]
   notifications     NotificationLog[]
   auditLogs         AuditLog[]
+  invitations       SalonInvitation[]
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -101,6 +109,7 @@ model SalonMember {
   workingHours WorkingHour[]
   timeOff      TimeOff[]
   appointments Appointment[]
+  invitation   SalonInvitation?
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)

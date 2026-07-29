@@ -42,6 +42,7 @@ model User {
   appointments Appointment[] @relation("clientAppointments")
   consents     ConsentRecord[]
   auditLogs    AuditLog[]
+  sentInvitations SalonInvitation[] @relation("sentInvitations")
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -82,6 +83,13 @@ model Session {
   @@index([userId])
 }
 
+/**
+ * Jetons à usage unique des liens de connexion.
+ *
+ * `identifier` porte l'adresse visée, `token` une empreinte SHA-256 : une
+ * lecture de la table ne permet pas de forger un lien valide, comme pour les
+ * sessions.
+ */
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -114,4 +122,51 @@ model ConsentRecord {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, type, createdAt])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+/**
+ * Invitation d'une personne à rejoindre l'équipe d'un salon.
+ *
+ * Distincte de `VerificationToken` : elle porte le membre visé, un statut et
+ * son auteur, et sa durée de vie se compte en jours plutôt qu'en minutes.
+ *
+ * Le membre existe déjà — le salon a créé sa fiche et son agenda ; l'invitation
+ * ne fait que rattacher un compte à cette fiche.
+ */
+model SalonInvitation {
+  id      String @id @default(cuid())
+  salonId String
+
+  /// Fiche de membre à rattacher au compte qui acceptera.
+  memberId String @unique
+
+  /// Adresse invitée, en minuscules. L'acceptation vérifie qu'elle correspond.
+  email String
+
+  /// Empreinte du jeton, jamais le jeton lui-même.
+  tokenHash String @unique
+
+  status    InvitationStatus @default(PENDING)
+  expiresAt DateTime         @db.Timestamptz(3)
+
+  /// Auteur de l'invitation. `SetNull` : la trace survit à l'anonymisation.
+  invitedById String?
+
+  acceptedAt DateTime? @db.Timestamptz(3)
+
+  salon     Salon        @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  member    SalonMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  invitedBy User?        @relation("sentInvitations", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([salonId, status])
+  @@index([email])
 }

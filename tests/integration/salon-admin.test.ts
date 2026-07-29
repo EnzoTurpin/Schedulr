@@ -591,6 +591,7 @@ describe('configuration du salon', () => {
           bookingHorizonDays: 60,
           slotStepMin: 15,
           cancellationDeadlineHours: 24,
+          smsMonthlyQuota: 500,
         }),
       ).not.toThrow()
     })
@@ -602,6 +603,7 @@ describe('configuration du salon', () => {
           bookingHorizonDays: 60,
           slotStepMin: 7,
           cancellationDeadlineHours: 24,
+          smsMonthlyQuota: 500,
         }),
       ).toThrow(InvalidSettingsError)
     })
@@ -614,6 +616,7 @@ describe('configuration du salon', () => {
           bookingHorizonDays: 2,
           slotStepMin: 15,
           cancellationDeadlineHours: 24,
+          smsMonthlyQuota: 500,
         }),
       ).toThrow(/aucun créneau/)
     })
@@ -625,6 +628,7 @@ describe('configuration du salon', () => {
           bookingHorizonDays: 0,
           slotStepMin: 15,
           cancellationDeadlineHours: 24,
+          smsMonthlyQuota: 500,
         }),
       ).toThrow(InvalidSettingsError)
     })
@@ -646,6 +650,7 @@ describe('configuration du salon', () => {
         bookingHorizonDays: 60,
         slotStepMin: 15,
         cancellationDeadlineHours: 24,
+        smsMonthlyQuota: 500,
       })
 
       const after = await getAvailability(query)

@@ -15,7 +15,7 @@ import { SESSION_COOKIE } from '@/lib/auth/constants'
  * non négociable du plan d'action, §2.
  */
 
-const PROTECTED_PREFIXES = ['/mon-compte', '/pro', '/admin']
+const PROTECTED_PREFIXES = ['/mon-compte', '/pro', '/admin', '/invitation']
 const AUTH_PAGES = ['/connexion', '/inscription']
 
 export function middleware(request: NextRequest) {
@@ -27,12 +27,18 @@ export function middleware(request: NextRequest) {
   )
 
   if (isProtected && !hasSessionCookie) {
+    // La requête d'origine est conservée : une invitation vit dans son jeton,
+    // et la perdre à la connexion renverrait la personne sur son compte sans
+    // aucun moyen de retrouver le lien reçu par courriel.
+    const destination = `${pathname}${request.nextUrl.search}`
+
     const url = request.nextUrl.clone()
     url.pathname = '/connexion'
+    url.search = ''
     // Mémorise la destination pour y revenir après connexion. Le chemin est
     // relatif et validé à l'usage : une URL absolue permettrait une redirection
     // ouverte vers un site tiers.
-    url.searchParams.set('suite', pathname)
+    url.searchParams.set('suite', destination)
     return NextResponse.redirect(url)
   }
 
@@ -54,6 +60,7 @@ export const config = {
     '/mon-compte/:path*',
     '/pro/:path*',
     '/admin/:path*',
+    '/invitation',
     '/connexion',
     '/inscription',
   ],
