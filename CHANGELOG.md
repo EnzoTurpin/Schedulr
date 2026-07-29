@@ -5,6 +5,25 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.6.0] - 2026-07-29
+
+### Added
+
+- **Mentions légales** (`/mentions-legales`), obligatoires pour un service en
+  ligne et jusqu'ici absentes. Le document est un gabarit : les informations
+  d'identification de l'éditeur et de l'hébergeur sont marquées « À COMPLÉTER »
+  et visibles, plutôt qu'inventées.
+- La **recherche publique porte aussi sur les prestations** : on cherche autant
+  « un balayage » qu'un salon par son nom. Les prestations désactivées sont
+  ignorées — proposer un salon pour une prestation qu'il ne fait plus mènerait
+  à un tunnel sans issue.
+
+### Changed
+
+- Les écrans connectés passent de 896 à 1152 pixels de large. L'agenda
+  multi-coiffeurs et les tableaux d'administration défilaient horizontalement
+  dès quatre colonnes, y compris sur grand écran.
+
 ## [1.5.0] - 2026-07-29
 
 ### Added
