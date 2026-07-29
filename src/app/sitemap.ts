@@ -9,6 +9,16 @@ import { crossSalon } from '@/lib/db/scoped'
  * Un salon suspendu en disparaît immédiatement — il ne doit plus être proposé
  * aux visiteurs.
  */
+/**
+ * Calculé à la demande, jamais au build.
+ *
+ * Deux raisons : la liste des salons actifs change en permanence, et un
+ * sitemap figé à la compilation serait périmé dès la création du salon
+ * suivant. Accessoirement, le job de build de l'intégration continue n'a pas
+ * de base de données — le prérendu échouerait.
+ */
+export const dynamic = 'force-dynamic'
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = clientEnv.NEXT_PUBLIC_APP_URL
 
