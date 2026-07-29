@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { currentActor } from '@/lib/auth/actor'
@@ -9,6 +10,9 @@ import { logout } from '@/features/auth/actions'
  * Rejoue l'authentification côté serveur : le middleware n'a fait que
  * constater la présence d'un cookie, il ne l'a pas validé.
  */
+/** Aucun espace connecté ne doit apparaître dans un moteur de recherche. */
+export const metadata: Metadata = { robots: { index: false, follow: false } }
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await currentActor()
   if (!actor) {

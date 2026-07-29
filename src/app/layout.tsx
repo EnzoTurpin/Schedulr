@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from 'next'
+import { clientEnv } from '@/lib/env.client'
 import './globals.css'
 
 export const metadata: Metadata = {
+  /**
+   * Base des URL absolues : sans elle, `alternates.canonical` reste relatif et
+   * les moteurs le rejettent.
+   */
+  metadataBase: new URL(clientEnv.NEXT_PUBLIC_APP_URL),
   title: {
     default: 'Schedulr — Réservation en ligne pour salons de coiffure',
     template: '%s | Schedulr',
@@ -9,12 +15,14 @@ export const metadata: Metadata = {
   description:
     'Réservez votre rendez-vous en ligne dans votre salon de coiffure, 24 h/24, ' +
     'et gérez votre agenda professionnel au même endroit.',
-  robots: {
-    // La visibilité est ouverte en phase 8, une fois les pages publiques
-    // réellement prêtes à être indexées.
-    index: false,
-    follow: false,
-  },
+  /**
+   * Les pages publiques sont indexables : le référencement des fiches salon
+   * est le principal canal d'acquisition (ADR-0001).
+   *
+   * Les espaces privés — client, professionnel, administration — posent leur
+   * propre `noindex`, et le tunnel de réservation aussi.
+   */
+  robots: { index: true, follow: true },
 }
 
 export const viewport: Viewport = {

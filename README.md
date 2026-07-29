@@ -119,6 +119,7 @@ contribution significative :
 | [0003](docs/adr/0003-modele-de-disponibilite.md)           | Calcul des disponibilités et fuseaux |
 | [0004](docs/adr/0004-integrite-anti-double-reservation.md) | Intégrité anti double-réservation    |
 | [0005](docs/adr/0005-composant-calendrier.md)              | Composant calendrier                 |
+| [0006](docs/adr/0006-stockage-des-images.md)               | Stockage des images                  |
 
 ## Contribuer
 

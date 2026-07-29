@@ -34,6 +34,21 @@ const NOW = new Date('2026-09-15T10:00:00+02:00')
 /** Rendez-vous dans ~24 h : dans la fenêtre du rappel. */
 const TOMORROW = new Date('2026-09-16T11:00:00+02:00')
 
+/** Gérant du salon, seul habilité à consulter les échecs d'envoi. */
+async function ownerOf(salonId: string): Promise<Actor> {
+  const user = await testDb.user.create({
+    data: { email: `owner-${salonId}@example.fr`, firstName: 'Julie', lastName: 'R' },
+  })
+  const member = await testDb.salonMember.create({
+    data: { salonId, userId: user.id, role: 'OWNER', displayName: 'Julie' },
+  })
+  return {
+    userId: user.id,
+    role: 'CLIENT',
+    memberships: [{ salonId, memberId: member.id, role: 'OWNER', isActive: true }],
+  }
+}
+
 async function fixture(options: { withConsent?: boolean; withPhone?: boolean } = {}) {
   const salon = await testDb.salon.create({
     data: {
@@ -406,7 +421,7 @@ describe('notifications', () => {
         },
       })
 
-      const failures = await listFailedNotifications(salon.id)
+      const failures = await listFailedNotifications(await ownerOf(salon.id), salon.id)
 
       expect(failures).toHaveLength(1)
       expect(failures[0]?.error).toBe('Adresse invalide')
@@ -428,7 +443,7 @@ describe('notifications', () => {
         },
       })
 
-      expect(await listFailedNotifications(salon.id)).toEqual([])
+      expect(await listFailedNotifications(await ownerOf(salon.id), salon.id)).toEqual([])
     })
 
     it('should not expose failures of another salon', async () => {
@@ -455,7 +470,10 @@ describe('notifications', () => {
         },
       })
 
-      expect(await listFailedNotifications(other.id)).toEqual([])
+      // Le gérant du premier salon n'a aucun droit sur le second.
+      await expect(
+        listFailedNotifications(await ownerOf(salon.id), other.id),
+      ).rejects.toThrow()
     })
   })
 

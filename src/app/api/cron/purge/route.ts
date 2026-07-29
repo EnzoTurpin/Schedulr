@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { purgeExpiredData } from '@/features/privacy/dataSubject'
+import { tokensMatch } from '@/lib/auth/session'
 import { env } from '@/lib/env.server'
 
 /**
@@ -15,7 +16,14 @@ export const maxDuration = 60
 export async function GET(request: NextRequest) {
   const authorization = request.headers.get('authorization')
 
-  if (!env.CRON_SECRET || authorization !== `Bearer ${env.CRON_SECRET}`) {
+  // Comparaison à temps constant : une comparaison ordinaire s'arrête au
+  // premier caractère différent et laisse mesurer le secret par sondages
+  // successifs.
+  if (
+    !env.CRON_SECRET ||
+    !authorization ||
+    !tokensMatch(authorization, `Bearer ${env.CRON_SECRET}`)
+  ) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 })
   }
 
