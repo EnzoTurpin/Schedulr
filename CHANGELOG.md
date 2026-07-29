@@ -5,7 +5,7 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
-## [Unreleased]
+## [1.0.1] - 2026-07-29
 
 ### Fixed
 
