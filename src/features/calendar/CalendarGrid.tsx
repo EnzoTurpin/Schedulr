@@ -53,6 +53,14 @@ export type CalendarEvent = {
   subtitle?: string
   /** Statut, pour la nuance visuelle et l'annonce vocale. */
   status?: string
+  /**
+   * Couleur propre, prioritaire sur celle de la colonne.
+   *
+   * En vue semaine, les colonnes sont des jours : c'est ce qui permet de faire
+   * cohabiter plusieurs coiffeurs dans une même journée, chacun reconnaissable
+   * à sa teinte.
+   */
+  color?: string
 }
 
 export type CalendarGridProps = {
@@ -222,6 +230,7 @@ export function CalendarGrid({
 
                 {boxes.map(({ event, top, height: blockHeight, left, width }) => {
                   const badge = event.status ? STATUS_BADGES[event.status] : undefined
+                  const color = event.color ?? resource.color
                   // Sous cette hauteur, seul le titre tient : afficher l'horaire
                   // le tronquerait au point de le rendre illisible.
                   const compact = blockHeight < 44
@@ -246,9 +255,9 @@ export function CalendarGrid({
                         height: blockHeight,
                         left: `calc(${left * 100}% + 2px)`,
                         width: `calc(${width * 100}% - 4px)`,
-                        backgroundColor: tint(resource.color, 14),
-                        borderColor: tint(resource.color, 35),
-                        borderLeftColor: resource.color,
+                        backgroundColor: tint(color, 14),
+                        borderColor: tint(color, 35),
+                        borderLeftColor: color,
                       }}
                     >
                       <span className="flex items-baseline gap-1.5">

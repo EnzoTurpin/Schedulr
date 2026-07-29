@@ -5,6 +5,31 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.8.0] - 2026-07-29
+
+### Changed
+
+- **La vue semaine devient la vue par défaut de l'agenda**, et réunit toute
+  l'équipe dans les mêmes colonnes. Les colonnes sont des jours, plus des
+  personnes : deux coiffeurs cohabitent donc dans une même journée, côte à côte.
+- **Chaque rendez-vous porte la couleur de son coiffeur**, indépendamment de sa
+  colonne. C'est ce qui rend l'équipe lisible d'un coup d'œil dans une vue
+  commune.
+
+### Added
+
+- **Filtre d'équipe** : les pastilles se comportent comme des cases à cocher,
+  toutes actives au départ. La sélection vit dans l'URL, ce qui rend le lien
+  partageable et le restaure après un rechargement.
+- La vue jour subsiste, avec une colonne par coiffeur, et respecte le même
+  filtre.
+
+### Fixed
+
+- La fenêtre d'un rendez-vous permet de changer de coiffeur depuis les deux
+  vues. Elle en était incapable en vue semaine, où la colonne est un jour et
+  ne désignait donc personne.
+
 ## [1.7.1] - 2026-07-29
 
 ### Fixed
