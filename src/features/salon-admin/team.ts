@@ -13,7 +13,7 @@ import { validateDayRanges, type WeekSchedule } from './schedule'
  *
  * Un membre peut exister sans compte utilisateur (`userId` nul) : le salon
  * crée la fiche du coiffeur et son agenda immédiatement, le rattachement à un
- * compte viendra par invitation lorsque l'envoi de courriels sera livré.
+ * compte se fait ensuite par invitation.
  */
 
 export async function listTeam(actor: Actor, salonId: string) {
