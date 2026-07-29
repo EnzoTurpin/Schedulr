@@ -2,29 +2,29 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatInTimeZone } from 'date-fns-tz'
 import {
   CalendarGrid,
   type CalendarEvent,
   type CalendarResource,
 } from '@/features/calendar/CalendarGrid'
 import type { GridScale } from '@/features/calendar/layout'
-import { formatDate, formatPrice } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   moveAppointmentAction,
   resizeAppointmentAction,
   setStatusAction,
 } from './actions'
+import { AppointmentDialog } from './AppointmentDialog'
 import { WalkInDialog, type WalkInDraft } from './WalkInDialog'
 
 /**
- * Plan de travail de l'agenda : grille, panneau de détail, navigation.
+ * Plan de travail de l'agenda : grille, fenêtre de rendez-vous, navigation.
  *
- * Applique une mise à jour optimiste **réversible** sur le déplacement et le
- * redimensionnement : le bloc suit le geste immédiatement, puis retourne à son
- * état d'origine si le serveur refuse (ADR-0004). Sans ce retour, un gérant
- * croirait son changement effectué alors qu'il a été rejeté.
+ * Applique une mise à jour optimiste **réversible** aux déplacements : le bloc
+ * bouge immédiatement, puis retrouve sa place si le serveur refuse (ADR-0004).
+ * Sans ce retour, un gérant croirait son changement effectué alors qu'il a été
+ * rejeté par la contrainte anti-chevauchement.
  */
 
 export type AgendaEvent = CalendarEvent & {
@@ -54,13 +54,6 @@ type Props = {
   canWrite: boolean
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'En attente',
-  CONFIRMED: 'Confirmé',
-  DONE: 'Honoré',
-  NO_SHOW: 'Non honoré',
-}
-
 /** Décale une date `AAAA-MM-JJ` de `days` jours. */
 function shiftDate(date: string, days: number): string {
   const noon = new Date(`${date}T12:00:00Z`)
@@ -86,7 +79,7 @@ export function AgendaBoard({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<WalkInDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [, startTransition] = useTransition()
+  const [pending, startTransition] = useTransition()
 
   // Les évènements viennent du serveur : une navigation doit primer sur l'état
   // optimiste conservé ici.
@@ -134,18 +127,19 @@ export function AgendaBoard({
     })
   }
 
-  function move(id: string, next: { resourceId: string; startAt: number }) {
+  /**
+   * Déplace un rendez-vous depuis sa fenêtre.
+   *
+   * L'horaire et la durée arrivent ensemble : les traiter en deux appels
+   * laisserait un état intermédiaire susceptible d'être refusé par la
+   * contrainte anti-chevauchement alors que le résultat final est valide.
+   */
+  function reschedule(
+    id: string,
+    next: { startAt: number; endAt: number; memberId?: string },
+  ) {
     const target = local.find((event) => event.id === id)
     if (!target) return
-
-    // En vue semaine, les colonnes sont des jours : changer de colonne déplace
-    // le rendez-vous d'un jour à l'autre, sans changer de coiffeur.
-    const dayShift =
-      view === 'week' && next.resourceId !== target.resourceId
-        ? resources.findIndex((r) => r.id === next.resourceId) -
-          resources.findIndex((r) => r.id === target.resourceId)
-        : 0
-    const startAt = next.startAt + dayShift * 24 * 3_600_000
 
     optimistic(
       (current) =>
@@ -153,31 +147,33 @@ export function AgendaBoard({
           event.id === id
             ? {
                 ...event,
-                resourceId: next.resourceId,
-                startAt,
-                endAt: startAt + (event.endAt - event.startAt),
+                resourceId: next.memberId ?? event.resourceId,
+                startAt: next.startAt,
+                endAt: next.endAt,
               }
             : event,
         ),
-      () =>
-        moveAppointmentAction({
+      async () => {
+        const moved = await moveAppointmentAction({
           salonId,
           appointmentId: id,
-          startAt,
-          // Le coiffeur ne change que si les colonnes en représentent.
-          ...(view === 'day' ? { memberId: next.resourceId } : {}),
-        }),
-    )
-  }
+          startAt: next.startAt,
+          ...(next.memberId ? { memberId: next.memberId } : {}),
+        })
+        if (!moved.ok) return moved
 
-  function resize(id: string, next: { endAt: number }) {
-    optimistic(
-      (current) =>
-        current.map((event) =>
-          event.id === id ? { ...event, endAt: next.endAt } : event,
-        ),
-      () => resizeAppointmentAction({ salonId, appointmentId: id, endAt: next.endAt }),
+        // La durée n'a pas changé : inutile de solliciter le serveur une
+        // seconde fois.
+        if (next.endAt - next.startAt === target.endAt - target.startAt) return moved
+
+        return resizeAppointmentAction({
+          salonId,
+          appointmentId: id,
+          endAt: next.endAt,
+        })
+      },
     )
+    setSelectedId(null)
   }
 
   function changeStatus(id: string, status: 'DONE' | 'NO_SHOW' | 'CANCELLED') {
@@ -299,8 +295,6 @@ export function AgendaBoard({
           scale={scale}
           timezone={timezone}
           onSelect={setSelectedId}
-          onMove={canWrite ? move : undefined}
-          onResize={canWrite ? resize : undefined}
           onCreate={canWrite ? openDraft : undefined}
         />
       </div>
@@ -320,81 +314,19 @@ export function AgendaBoard({
       )}
 
       {selected && (
-        <aside
-          aria-label="Détail du rendez-vous"
-          className="mt-6 rounded-lg border border-slate-200 p-5"
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-lg font-semibold">{selected.title}</h2>
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-              {STATUS_LABELS[selected.status ?? ''] ?? selected.status}
-            </span>
-          </div>
-
-          <dl className="mt-4 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-            <dt className="text-slate-500">Horaire</dt>
-            <dd>
-              {formatInTimeZone(selected.startAt, timezone, 'HH:mm')} –{' '}
-              {formatInTimeZone(selected.endAt, timezone, 'HH:mm')}
-            </dd>
-            <dt className="text-slate-500">Prestations</dt>
-            <dd>{selected.services.join(', ')}</dd>
-            <dt className="text-slate-500">Total</dt>
-            <dd>{formatPrice(selected.totalPriceCents)}</dd>
-            {selected.clientPhone && (
-              <>
-                <dt className="text-slate-500">Téléphone</dt>
-                <dd>{selected.clientPhone}</dd>
-              </>
-            )}
-            {selected.clientNote && (
-              <>
-                <dt className="text-slate-500">Message client</dt>
-                <dd>{selected.clientNote}</dd>
-              </>
-            )}
-            {selected.staffNote && (
-              <>
-                <dt className="text-slate-500">Note interne</dt>
-                <dd>{selected.staffNote}</dd>
-              </>
-            )}
-          </dl>
-
-          {canWrite && selected.status !== 'DONE' && selected.status !== 'NO_SHOW' && (
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => changeStatus(selected.id, 'DONE')}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-              >
-                Marquer honoré
-              </button>
-              <button
-                type="button"
-                onClick={() => changeStatus(selected.id, 'NO_SHOW')}
-                className="rounded-md border border-amber-500 px-3 py-1.5 text-sm font-medium text-amber-700"
-              >
-                Client absent
-              </button>
-              <button
-                type="button"
-                onClick={() => changeStatus(selected.id, 'CANCELLED')}
-                className="rounded-md border border-red-400 px-3 py-1.5 text-sm font-medium text-red-700"
-              >
-                Annuler
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setSelectedId(null)}
-            className="mt-5 text-sm text-slate-600 underline"
-          >
-            Fermer le détail
-          </button>
-        </aside>
+        <AppointmentDialog
+          event={selected}
+          timezone={timezone}
+          staff={staff}
+          // En vue semaine, les colonnes sont des jours : le coiffeur est déjà
+          // choisi et ne se change pas depuis cet écran.
+          canChangeMember={view === 'day'}
+          canWrite={canWrite}
+          pending={pending}
+          onClose={() => setSelectedId(null)}
+          onReschedule={(next) => reschedule(selected.id, next)}
+          onStatus={(status) => changeStatus(selected.id, status)}
+        />
       )}
     </div>
   )

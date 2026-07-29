@@ -5,6 +5,33 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.7.0] - 2026-07-29
+
+### Changed
+
+- **Le glisser-déposer de l'agenda est retiré.** Cliquer pour consulter et
+  tirer pour déplacer sont deux gestes trop proches : sur une grille dense, un
+  tremblement de souris décalait un rendez-vous, et un client se présentait à
+  une heure qui n'était plus la sienne. Un clic ouvre désormais la fenêtre du
+  rendez-vous, où l'horaire, la durée et le coiffeur se modifient par des
+  champs. ADR-0005 amendé.
+- **Les rendez-vous sont colorés à la teinte de leur coiffeur**, fond compris,
+  au lieu d'un simple liseré sur fond blanc. La couleur est dérivée de celle du
+  salon par `color-mix`, sans imposer de palette. Le statut reste porté par une
+  pastille et un traitement du texte : la couleur seule ne doit jamais porter
+  une information (WCAG 1.4.1).
+- Le détail d'un rendez-vous s'affiche dans une vraie fenêtre modale — piège de
+  focus, fermeture par Échap, arrière-plan inerte — au lieu d'un panneau sous
+  la grille.
+- Souris et clavier deviennent équivalents : les flèches parcourent les
+  rendez-vous, elles ne les déplacent plus.
+
+### Fixed
+
+- Contraste insuffisant des horaires et sous-titres sur fond teinté. `slate-500`
+  passait de justesse sur blanc et tombait sous le seuil AA dès qu'une teinte
+  était appliquée.
+
 ## [1.6.0] - 2026-07-29
 
 ### Added
