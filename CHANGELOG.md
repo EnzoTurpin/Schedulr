@@ -27,6 +27,24 @@ versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
 ## [1.2.0] - 2026-07-29
 
+### Added
+
+- **Navigation entre espaces** dans l'en-tête de l'espace connecté. Une même
+  personne peut être cliente ici et gérante là ; passer de l'un à l'autre
+  exigeait jusqu'ici de modifier l'URL. Les liens s'affichent selon les droits
+  réels.
+- Retour vers la liste des salons depuis l'agenda de l'un d'eux.
+- **Pages d'erreur** : 404, erreur de rendu et erreur racine. L'application
+  n'en avait aucune — un lien périmé affichait l'écran par défaut de Next.js,
+  sans en-tête ni moyen de repartir.
+
+### Changed
+
+- La fiche publique d'un salon sans prestation, sans horaire ou sans coiffeur
+  n'invite plus à réserver : le tunnel n'aurait proposé aucun créneau. Le
+  numéro de téléphone du salon est proposé à la place, s'il est renseigné.
+- Commentaires renvoyant à des phases de livraison désormais achevées.
+
 ### Fixed
 
 - **Un salon monté par l'interface ne pouvait accepter aucune réservation.** Le

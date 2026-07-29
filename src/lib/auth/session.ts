@@ -7,10 +7,10 @@ import { SESSION_COOKIE, SESSION_DURATION_DAYS } from './constants'
  * Sessions persistées en base (ADR-0001).
  *
  * Auth.js v5 n'accepte pas les sessions en base avec un fournisseur par mot de
- * passe : ce module implémente donc le cycle de vie de session directement.
- * Le modèle `Session` reste conforme au contrat de l'adaptateur Prisma
- * d'Auth.js, afin de pouvoir y brancher le lien magique en phase 6 sans
- * migration.
+ * passe : ce module implémente donc le cycle de vie de session directement
+ * (voir l'amendement de l'ADR-0001). Le modèle `Session` reste conforme au
+ * contrat de l'adaptateur Prisma d'Auth.js, ce qui laisse la porte ouverte à
+ * une fédération d'identité sans migration.
  *
  * Le jeton de session est stocké **haché** en base : une lecture de la table
  * (sauvegarde, injection SQL, accès d'un prestataire) ne permet pas d'usurper

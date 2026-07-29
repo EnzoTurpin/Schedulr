@@ -18,8 +18,7 @@ import {
  * Équipe du salon : membres, rôles, prestations réalisées.
  *
  * Un membre peut être créé sans compte : sa fiche et son agenda existent
- * immédiatement, le rattachement à un compte viendra par invitation lorsque
- * l'envoi de courriels sera livré.
+ * immédiatement, le rattachement à un compte se fait ensuite par invitation.
  */
 
 type Member = {

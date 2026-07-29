@@ -121,9 +121,9 @@ export async function register(
 
   if (existing) {
     // Message volontairement identique à un succès du point de vue de
-    // l'attaquant : on n'annonce pas que l'adresse est déjà prise. Le
-    // propriétaire légitime de l'adresse recevra un courriel l'en informant
-    // lorsque la phase 6 sera livrée.
+    // l'attaquant : on n'annonce pas que l'adresse est déjà prise.
+    // TODO(SCH-18): prévenir par courriel le titulaire légitime de l'adresse,
+    // seul moyen pour lui d'apprendre qu'une inscription a été tentée.
     return {
       error:
         'Si cette adresse n’est pas déjà utilisée, votre compte a été créé. ' +
