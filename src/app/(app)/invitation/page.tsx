@@ -5,16 +5,11 @@ import { AcceptInvitation } from '@/features/salon-admin/AcceptInvitation'
 import { describeInvitation } from '@/features/salon-admin/invitations'
 import { requireActor } from '@/lib/auth/actor'
 import { prisma } from '@/lib/db/client'
+import { SALON_ROLE_LABELS } from '@/lib/labels'
 
 export const metadata: Metadata = {
   title: 'Invitation',
   robots: { index: false, follow: false },
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: 'gérant',
-  MANAGER: 'manager',
-  STAFF: 'coiffeur',
 }
 
 /**
@@ -67,7 +62,7 @@ export default async function InvitationPage({
       <p className="mt-3 text-slate-600">
         Le salon {invitation.salon.name} ({invitation.salon.city}) vous invite à rattacher
         votre compte à la fiche «&nbsp;{invitation.member.displayName}
-        &nbsp;», en tant que {ROLE_LABELS[invitation.member.role] ?? 'membre'}.
+        &nbsp;», en tant que {SALON_ROLE_LABELS[invitation.member.role].toLowerCase()}.
       </p>
 
       {matches ? (
