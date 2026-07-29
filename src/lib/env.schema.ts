@@ -43,8 +43,8 @@ export const serverEnvSchema = z.object({
     }),
 
   // --- Fournisseurs de notification -------------------------------------
-  // Optionnels tant que la phase 6 n'est pas livrée, mais exigés dès que le
-  // coupe-circuit ci-dessous est armé.
+  // Optionnels : une installation peut tourner sans notifications. Ils
+  // deviennent exigés dès que le coupe-circuit ci-dessous est armé.
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(3).includes('@').optional(),
 

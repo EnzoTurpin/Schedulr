@@ -84,6 +84,11 @@ export default async function SalonPage({ params }: Props) {
     notFound()
   }
 
+  // Le tunnel a besoin d'au moins une prestation, un horaire et un coiffeur
+  // réservable ; sans quoi il ne peut proposer aucun créneau.
+  const bookable =
+    salon.services.length > 0 && salon.openingHours.length > 0 && salon.members.length > 0
+
   return (
     <main id="contenu" className="mx-auto max-w-4xl px-6 py-12">
       <script
@@ -100,12 +105,30 @@ export default async function SalonPage({ params }: Props) {
       </p>
       {salon.description && <p className="mt-4 text-slate-700">{salon.description}</p>}
 
-      <Link
-        href={`/reserver/${salon.slug}`}
-        className="bg-brand-600 hover:bg-brand-700 mt-6 inline-block rounded-md px-5 py-2.5 font-medium text-white"
-      >
-        Prendre rendez-vous
-      </Link>
+      {/* Un salon sans prestation ni horaire ne peut rien proposer : l'inviter
+          à réserver mènerait à un tunnel vide. */}
+      {bookable ? (
+        <Link
+          href={`/reserver/${salon.slug}`}
+          className="bg-brand-600 hover:bg-brand-700 mt-6 inline-block rounded-md px-5 py-2.5 font-medium text-white"
+        >
+          Prendre rendez-vous
+        </Link>
+      ) : (
+        <p className="mt-6 rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          La réservation en ligne n’est pas encore ouverte pour ce salon.
+          {salon.phone && (
+            <>
+              {' '}
+              Vous pouvez le joindre au{' '}
+              <a href={`tel:${salon.phone}`} className="underline">
+                {salon.phone}
+              </a>
+              .
+            </>
+          )}
+        </p>
+      )}
 
       <section aria-labelledby="prestations" className="mt-12">
         <h2 id="prestations" className="text-xl font-semibold">
@@ -151,6 +174,12 @@ export default async function SalonPage({ params }: Props) {
               </ul>
             </div>
           ))}
+
+        {salon.services.length === 0 && (
+          <p className="mt-4 text-slate-600">
+            Ce salon n’a pas encore publié ses prestations.
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="equipe" className="mt-12">

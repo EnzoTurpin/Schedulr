@@ -391,6 +391,68 @@ describe('configuration du salon', () => {
       expect(sofia?.isActive).toBe(true)
     })
 
+    it('should give a new member the salon opening hours when created', async () => {
+      // Le moteur croise les heures du salon et celles du membre sans repli :
+      // un membre sans horaires ne serait jamais proposé à la réservation.
+      const { salon, owner } = await fixture()
+
+      const created = await createMember(owner, salon.id, {
+        displayName: 'Nour',
+        color: '#f59e0b',
+        role: 'STAFF',
+        isBookable: true,
+      })
+
+      const team = await listTeam(owner, salon.id)
+      const nour = team.find((m) => m.id === created.id)
+
+      expect(nour?.workingHours).toEqual([
+        { dayOfWeek: WEDNESDAY, startMin: h(9), endMin: h(19) },
+      ])
+    })
+
+    it('should leave a new member without hours when the salon has none', async () => {
+      // Rien à recopier : la fiche reste vide et l'écran d'équipe le signale.
+      const { salon, owner } = await fixture('salon-sans-horaires')
+      await testDb.openingHour.deleteMany({ where: { salonId: salon.id } })
+
+      const created = await createMember(owner, salon.id, {
+        displayName: 'Alex',
+        color: '#8b5cf6',
+        role: 'STAFF',
+        isBookable: true,
+      })
+
+      const team = await listTeam(owner, salon.id)
+      expect(team.find((m) => m.id === created.id)?.workingHours).toEqual([])
+    })
+
+    it('should hide a member from availability when their time off covers the day', async () => {
+      // Le congé est le seul moyen de retirer un coiffeur ponctuellement sans
+      // toucher à ses horaires récurrents.
+      const { salon, owner, member, service } = await fixture('salon-conges')
+      const query = {
+        salonId: salon.id,
+        serviceIds: [service.id],
+        memberId: member.id,
+        from: new Date('2026-07-15T00:00:00+02:00'),
+        to: new Date('2026-07-15T23:59:00+02:00'),
+        now: new Date('2026-07-01T10:00:00+02:00'),
+      }
+
+      expect((await getAvailability(query)).slots.length).toBeGreaterThan(0)
+
+      await createTimeOff(owner, salon.id, {
+        memberId: member.id,
+        startAt: new Date('2026-07-15T00:00:00+02:00'),
+        endAt: new Date('2026-07-16T00:00:00+02:00'),
+        reason: 'Congés',
+      })
+      clearCache()
+
+      expect((await getAvailability(query)).slots).toEqual([])
+    })
+
     it('should refuse an owner demoting themselves', async () => {
       // Sans cette garde, le salon se retrouverait sans personne pour gérer
       // l'équipe.

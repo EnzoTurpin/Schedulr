@@ -148,7 +148,13 @@ export default async function AgendaPage({ params, searchParams }: Props) {
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{salon.name}</h1>
+          {/* Un membre de plusieurs salons doit pouvoir revenir à sa liste. */}
+          <p className="text-sm text-slate-500">
+            <Link href="/pro" className="underline">
+              ← Mes salons
+            </Link>
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{salon.name}</h1>
           <p className="mt-1 text-sm text-slate-600">Agenda du salon</p>
         </div>
         <div className="flex gap-3">

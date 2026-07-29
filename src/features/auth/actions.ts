@@ -3,7 +3,13 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { currentActor, landingPath } from '@/lib/auth/actor'
-import { buildMagicLinkEmail, sendAuthEmail } from '@/features/notifications/authEmails'
+import {
+  buildDuplicateSignupEmail,
+  buildMagicLinkEmail,
+  buildVerificationEmail,
+  sendAuthEmail,
+} from '@/features/notifications/authEmails'
+import { createVerificationToken } from '@/lib/auth/emailVerification'
 import {
   consumeMagicLinkToken,
   createMagicLinkToken,
@@ -107,6 +113,7 @@ export async function register(
     password: formData.get('password'),
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
+    phone: formData.get('phone') ?? '',
   })
 
   if (!parsed.success) {
@@ -119,10 +126,12 @@ export async function register(
   })
 
   if (existing) {
+    // Le titulaire légitime est prévenu : c'est son seul moyen d'apprendre
+    // qu'on tente d'utiliser son adresse.
+    await sendAuthEmail(buildDuplicateSignupEmail(parsed.data.email))
+
     // Message volontairement identique à un succès du point de vue de
-    // l'attaquant : on n'annonce pas que l'adresse est déjà prise. Le
-    // propriétaire légitime de l'adresse recevra un courriel l'en informant
-    // lorsque la phase 6 sera livrée.
+    // l'attaquant : on n'annonce pas que l'adresse est déjà prise.
     return {
       error:
         'Si cette adresse n’est pas déjà utilisée, votre compte a été créé. ' +
@@ -136,9 +145,20 @@ export async function register(
       passwordHash: await hashPassword(parsed.data.password),
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
+      phone: parsed.data.phone || null,
     },
     select: { id: true },
   })
+
+  // La confirmation ne conditionne pas l'accès au compte, seulement l'envoi
+  // des notifications : une adresse mal saisie ne doit pas enfermer son
+  // auteur hors de son propre compte.
+  await sendAuthEmail(
+    buildVerificationEmail(
+      parsed.data.email,
+      await createVerificationToken(parsed.data.email),
+    ),
+  )
 
   const token = await createSession(user.id)
   await setSessionCookie(token)

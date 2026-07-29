@@ -10,7 +10,7 @@ import { crossSalon } from '@/lib/db/scoped'
 const PAGE_SIZE = 20
 
 export type SalonSearchParams = {
-  /** Ville ou nom de salon. */
+  /** Ville, nom de salon ou prestation. */
   q?: string
   page?: number
 }
@@ -18,9 +18,13 @@ export type SalonSearchParams = {
 /**
  * Recherche de salons.
  *
- * Recherche insensible à la casse sur le nom et la ville. Une vraie recherche
- * plein texte (index GIN, `unaccent`) sera nécessaire à l'échelle ; à ce stade
- * elle serait prématurée.
+ * Insensible à la casse, sur le nom, la ville et les prestations proposées :
+ * on cherche autant « un balayage près de chez moi » qu'un salon par son nom.
+ * Seules les prestations actives comptent — proposer un salon pour une
+ * prestation qu'il ne fait plus mènerait à un tunnel sans issue.
+ *
+ * Une vraie recherche plein texte (index GIN, `unaccent`) sera nécessaire à
+ * l'échelle ; à ce stade elle serait prématurée.
  */
 export async function searchSalons({ q, page = 1 }: SalonSearchParams) {
   const db = crossSalon('recherche publique de salons')
@@ -32,6 +36,14 @@ export async function searchSalons({ q, page = 1 }: SalonSearchParams) {
           OR: [
             { name: { contains: q, mode: 'insensitive' as const } },
             { city: { contains: q, mode: 'insensitive' as const } },
+            {
+              services: {
+                some: {
+                  isActive: true,
+                  name: { contains: q, mode: 'insensitive' as const },
+                },
+              },
+            },
           ],
         }
       : {}),

@@ -214,6 +214,7 @@ export async function loadAppointmentSummary(
           firstName: true,
           lastName: true,
           email: true,
+          emailVerified: true,
           phone: true,
           consents: {
             where: { type: 'TRANSACTIONAL_SMS' },
@@ -255,7 +256,11 @@ export async function loadAppointmentSummary(
     clientName: client
       ? [client.firstName, client.lastName].filter(Boolean).join(' ')
       : (appointment.guestName ?? 'Client'),
-    email: client?.email ?? appointment.guestEmail,
+    // Une adresse non confirmée n'est pas servie : sans cette garde, un
+    // compte créé au nom d'un tiers recevrait ses rendez-vous. L'adresse d'un
+    // rendez-vous pris au comptoir est en revanche donnée de vive voix, donc
+    // fiable par construction.
+    email: client ? (client.emailVerified ? client.email : null) : appointment.guestEmail,
     phone: client?.phone ?? appointment.guestPhone,
     // Consentement explicite exigé. Un rendez-vous pris au comptoir n'a pas de
     // compte : sans trace de consentement, pas de SMS.

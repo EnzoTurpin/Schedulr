@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { SALON_ROLE_LABELS } from '@/lib/labels'
+import { MemberForm } from './MemberForm'
+import { MemberSchedule, type TimeOff } from './MemberSchedule'
+import type { Week } from './WeekEditor'
 import {
   deactivateMemberAction,
   inviteMemberAction,
@@ -14,8 +18,7 @@ import {
  * Équipe du salon : membres, rôles, prestations réalisées.
  *
  * Un membre peut être créé sans compte : sa fiche et son agenda existent
- * immédiatement, le rattachement à un compte viendra par invitation lorsque
- * l'envoi de courriels sera livré.
+ * immédiatement, le rattachement à un compte se fait ensuite par invitation.
  */
 
 type Member = {
@@ -29,6 +32,7 @@ type Member = {
   userId: string | null
   user: { email: string } | null
   services: { serviceId: string }[]
+  workingHours: { dayOfWeek: number; startMin: number; endMin: number }[]
 }
 
 type Invitation = {
@@ -40,24 +44,43 @@ type Invitation = {
 
 type Props = {
   salonId: string
+  timezone: string
   members: Member[]
   services: { id: string; name: string }[]
   invitations: Invitation[]
+  timeOff: TimeOff[]
+  /** Horaires du salon, proposés par défaut à un membre qui n'en a aucun. */
+  openingHours: Week
 }
 
-const ROLE_LABELS: Record<Member['role'], string> = {
-  OWNER: 'Gérant',
-  MANAGER: 'Manager',
-  STAFF: 'Coiffeur',
+/** Regroupe des plages par jour, forme attendue par l'éditeur de semaine. */
+function toWeek(hours: Member['workingHours']): Week {
+  const week: Week = {}
+  for (const hour of hours) {
+    week[hour.dayOfWeek] = [
+      ...(week[hour.dayOfWeek] ?? []),
+      { startMin: hour.startMin, endMin: hour.endMin },
+    ]
+  }
+  return week
 }
 
 const DEFAULT_COLOR = '#8b5cf6'
 
-export function TeamPanel({ salonId, members, services, invitations }: Props) {
+export function TeamPanel({
+  salonId,
+  timezone,
+  members,
+  services,
+  invitations,
+  timeOff,
+  openingHours,
+}: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState<Member | 'new' | null>(null)
   const [assigning, setAssigning] = useState<Member | null>(null)
   const [inviting, setInviting] = useState<Member | null>(null)
+  const [scheduling, setScheduling] = useState<Member | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -90,6 +113,7 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
           userId: null,
           user: null,
           services: [],
+          workingHours: [],
         }
       : editing
 
@@ -118,121 +142,24 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
       )}
 
       {draft && (
-        <form
-          action={(formData) =>
+        <MemberForm
+          editedName={editing !== 'new' && editing ? editing.displayName : null}
+          values={draft}
+          pending={pending}
+          onSubmit={(values) =>
             run(
               () =>
                 saveMemberAction({
                   salonId,
                   memberId: editing !== 'new' && editing ? editing.id : undefined,
-                  displayName: String(formData.get('displayName') ?? ''),
-                  bio: String(formData.get('bio') ?? '') || undefined,
-                  color: String(formData.get('color') ?? DEFAULT_COLOR),
-                  role: String(formData.get('role') ?? 'STAFF') as Member['role'],
-                  isBookable: formData.get('isBookable') === 'on',
+                  ...values,
+                  bio: values.bio ?? undefined,
                 }),
               () => setEditing(null),
             )
           }
-          className="mt-6 rounded-lg border border-slate-200 p-5"
-        >
-          <h3 className="font-medium">
-            {editing === 'new' ? 'Nouveau membre' : `Modifier « ${draft.displayName} »`}
-          </h3>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="displayName" className="text-sm font-medium">
-                Nom affiché
-              </label>
-              <input
-                id="displayName"
-                name="displayName"
-                required
-                maxLength={80}
-                defaultValue={draft.displayName}
-                aria-describedby="aide-nom"
-                className="rounded-md border border-slate-300 px-3 py-2"
-              />
-              <p id="aide-nom" className="text-xs text-slate-500">
-                Visible des clients lors de la réservation.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="role" className="text-sm font-medium">
-                Rôle
-              </label>
-              <select
-                id="role"
-                name="role"
-                defaultValue={draft.role}
-                className="rounded-md border border-slate-300 px-3 py-2"
-              >
-                <option value="STAFF">Coiffeur</option>
-                <option value="MANAGER">Manager</option>
-                <option value="OWNER">Gérant</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="color" className="text-sm font-medium">
-                Couleur dans l’agenda
-              </label>
-              <input
-                id="color"
-                name="color"
-                type="color"
-                defaultValue={draft.color}
-                className="h-10 w-20 rounded-md border border-slate-300"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 pt-6">
-              <input
-                id="isBookable"
-                name="isBookable"
-                type="checkbox"
-                defaultChecked={draft.isBookable}
-                className="size-4"
-              />
-              <label htmlFor="isBookable" className="text-sm">
-                Réservable en ligne
-              </label>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-1.5">
-            <label htmlFor="bio" className="text-sm font-medium">
-              Présentation <span className="text-slate-500">(facultatif)</span>
-            </label>
-            <textarea
-              id="bio"
-              name="bio"
-              rows={2}
-              maxLength={500}
-              defaultValue={draft.bio ?? ''}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="submit"
-              disabled={pending}
-              className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {pending ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm"
-            >
-              Annuler
-            </button>
-          </div>
-        </form>
+          onCancel={() => setEditing(null)}
+        />
       )}
 
       <ul className="mt-6 divide-y divide-slate-200">
@@ -246,7 +173,9 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
                   style={{ backgroundColor: member.color }}
                 />
                 <span className="font-medium">{member.displayName}</span>
-                <span className="text-sm text-slate-500">{ROLE_LABELS[member.role]}</span>
+                <span className="text-sm text-slate-500">
+                  {SALON_ROLE_LABELS[member.role]}
+                </span>
                 {!member.isActive && (
                   <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
                     Désactivé
@@ -257,6 +186,13 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
                     Non réservable
                   </span>
                 )}
+                {member.isActive &&
+                  member.isBookable &&
+                  member.workingHours.length === 0 && (
+                    <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
+                      Sans horaires
+                    </span>
+                  )}
               </div>
 
               {member.isActive && (
@@ -274,6 +210,17 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
                     className="underline"
                   >
                     Prestations
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setScheduling((current) =>
+                        current?.id === member.id ? null : member,
+                      )
+                    }
+                    className="underline"
+                  >
+                    Horaires
                   </button>
                   {!member.userId && (
                     <button
@@ -429,6 +376,19 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
                   </button>
                 </div>
               </form>
+            )}
+
+            {scheduling?.id === member.id && (
+              <MemberSchedule
+                salonId={salonId}
+                memberId={member.id}
+                memberName={member.displayName}
+                timezone={timezone}
+                workingHours={toWeek(member.workingHours)}
+                timeOff={timeOff.filter((absence) => absence.memberId === member.id)}
+                openingHours={openingHours}
+                onClose={() => setScheduling(null)}
+              />
             )}
           </li>
         ))}

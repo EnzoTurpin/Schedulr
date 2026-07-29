@@ -44,13 +44,17 @@ export async function createMagicLinkToken(email: string): Promise<string> {
 
   // Les demandes précédentes sont invalidées : recevoir un nouveau lien doit
   // rendre les anciens inopérants, sans quoi un lien ancien resterait
-  // utilisable après un changement d'avis.
-  await prisma.verificationToken.deleteMany({ where: { identifier } })
+  // utilisable après un changement d'avis. Restreint aux jetons de connexion :
+  // une vérification d'adresse en cours ne doit pas en pâtir.
+  await prisma.verificationToken.deleteMany({
+    where: { identifier, purpose: 'LOGIN' },
+  })
 
   await prisma.verificationToken.create({
     data: {
       identifier,
       token: hashToken(token),
+      purpose: 'LOGIN',
       expires: new Date(Date.now() + LIFETIME_MS),
     },
   })
@@ -71,17 +75,20 @@ export async function consumeMagicLinkToken(token: string): Promise<string | nul
 
   const record = await prisma.verificationToken.findUnique({
     where: { token: hashToken(token) },
-    select: { identifier: true, expires: true },
+    select: { identifier: true, expires: true, purpose: true },
   })
 
-  if (!record) return null
+  // Un jeton de vérification d'adresse prouve le contrôle de la boîte, mais
+  // n'a pas été émis pour ouvrir une session : le confondre élargirait la
+  // portée d'un lien sans que son destinataire l'ait voulu.
+  if (!record || record.purpose !== 'LOGIN') return null
 
   // C'est la suppression, et non la lecture, qui départage : deux appels
   // concurrents lisent tous deux la ligne, mais un seul la supprime
   // effectivement. Sans ce contrôle du nombre de lignes retirées, un lien
   // intercepté ouvrirait deux sessions au lieu d'une.
   const { count } = await prisma.verificationToken.deleteMany({
-    where: { token: hashToken(token) },
+    where: { token: hashToken(token), purpose: 'LOGIN' },
   })
 
   if (count === 0) return null

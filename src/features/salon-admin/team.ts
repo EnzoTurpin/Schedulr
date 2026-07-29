@@ -13,7 +13,7 @@ import { validateDayRanges, type WeekSchedule } from './schedule'
  *
  * Un membre peut exister sans compte utilisateur (`userId` nul) : le salon
  * crée la fiche du coiffeur et son agenda immédiatement, le rattachement à un
- * compte viendra par invitation lorsque l'envoi de courriels sera livré.
+ * compte se fait ensuite par invitation.
  */
 
 export async function listTeam(actor: Actor, salonId: string) {
@@ -49,11 +49,40 @@ export type MemberInput = {
   isBookable: boolean
 }
 
+/**
+ * Crée un membre et lui donne les horaires d'ouverture du salon.
+ *
+ * Le moteur de disponibilité croise les heures du salon avec celles du membre
+ * **sans repli** : sans horaires propres, un coiffeur n'est jamais proposé à la
+ * réservation. Laisser la fiche vide serait donc un piège — le gérant croirait
+ * son équipe en place alors qu'aucun créneau n'existe.
+ *
+ * Ces horaires sont un point de départ visible et modifiable, pas une règle
+ * implicite : ils apparaissent tels quels dans l'écran d'équipe.
+ */
 export async function createMember(actor: Actor, salonId: string, input: MemberInput) {
   assertCan(actor, 'member:manage', { kind: 'salon', salonId })
 
-  const member = await forSalon(salonId).salonMember.create({
-    data: { salonId, ...input, bio: input.bio ?? null },
+  const db = forSalon(salonId)
+
+  const opening = await db.openingHour.findMany({
+    select: { dayOfWeek: true, startMin: true, endMin: true },
+  })
+
+  const member = await db.salonMember.create({
+    data: {
+      salonId,
+      ...input,
+      bio: input.bio ?? null,
+      workingHours: {
+        create: opening.map((hour) => ({
+          salonId,
+          dayOfWeek: hour.dayOfWeek,
+          startMin: hour.startMin,
+          endMin: hour.endMin,
+        })),
+      },
+    },
     select: { id: true, displayName: true },
   })
 

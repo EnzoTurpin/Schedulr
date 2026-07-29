@@ -90,12 +90,24 @@ model Session {
  * lecture de la table ne permet pas de forger un lien valide, comme pour les
  * sessions.
  */
+/// Usage d'un jeton à usage unique.
+///
+/// Sans cette distinction, un jeton de vérification d'adresse ouvrirait une
+/// session — les deux vivent dans la même table — et demander un lien de
+/// connexion effacerait la vérification en cours.
+enum TokenPurpose {
+  LOGIN
+  EMAIL_VERIFICATION
+}
+
 model VerificationToken {
   identifier String
-  token      String   @unique
-  expires    DateTime @db.Timestamptz(3)
+  token      String       @unique
+  purpose    TokenPurpose @default(LOGIN)
+  expires    DateTime     @db.Timestamptz(3)
 
   @@unique([identifier, token])
+  @@index([identifier, purpose])
 }
 
 enum ConsentType {

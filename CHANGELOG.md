@@ -5,6 +5,123 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.6.0] - 2026-07-29
+
+### Added
+
+- **Mentions légales** (`/mentions-legales`), obligatoires pour un service en
+  ligne et jusqu'ici absentes. Le document est un gabarit : les informations
+  d'identification de l'éditeur et de l'hébergeur sont marquées « À COMPLÉTER »
+  et visibles, plutôt qu'inventées.
+- La **recherche publique porte aussi sur les prestations** : on cherche autant
+  « un balayage » qu'un salon par son nom. Les prestations désactivées sont
+  ignorées — proposer un salon pour une prestation qu'il ne fait plus mènerait
+  à un tunnel sans issue.
+
+### Changed
+
+- Les écrans connectés passent de 896 à 1152 pixels de large. L'agenda
+  multi-coiffeurs et les tableaux d'administration défilaient horizontalement
+  dès quatre colonnes, y compris sur grand écran.
+
+## [1.5.0] - 2026-07-29
+
+### Added
+
+- **Vérification de l'adresse électronique.** N'importe qui pouvait jusqu'ici
+  s'inscrire avec l'adresse d'un tiers et recevoir ses notifications de
+  rendez-vous : la colonne `emailVerified` n'était jamais renseignée ni lue.
+  Tant que l'adresse n'est pas confirmée, **seuls les courriels sont
+  suspendus** — bloquer la connexion enfermerait dehors quiconque a saisi son
+  adresse de travers.
+- **Changement de mot de passe**, qui ferme toutes les sessions. C'est le point
+  essentiel : changer son mot de passe après une compromission ne sert à rien
+  si la session de l'intrus reste ouverte.
+- **Fermeture de toutes les sessions** depuis le profil. `revokeAllSessions`
+  existait et était testée, sans aucune commande pour l'atteindre.
+- **Alerte au titulaire** lorsqu'une inscription est tentée sur son adresse.
+  L'auteur de la tentative n'apprend rien — ce serait un moyen d'énumérer les
+  comptes — mais le titulaire légitime, si.
+
+### Security
+
+- Les jetons à usage unique portent désormais un usage explicite. Sans lui, un
+  lien de confirmation d'adresse ouvrait une session, et demander un lien de
+  connexion effaçait une vérification en cours : les deux partagent la même
+  table.
+
+## [1.4.0] - 2026-07-29
+
+### Added
+
+- **Navigation entre espaces** dans l'en-tête de l'espace connecté. Une même
+  personne peut être cliente ici et gérante là ; passer de l'un à l'autre
+  exigeait jusqu'ici de modifier l'URL. Les liens s'affichent selon les droits
+  réels.
+- Retour vers la liste des salons depuis l'agenda de l'un d'eux.
+- **Pages d'erreur** : 404, erreur de rendu et erreur racine. L'application
+  n'en avait aucune — un lien périmé affichait l'écran par défaut de Next.js,
+  sans en-tête ni moyen de repartir.
+
+### Changed
+
+- La fiche publique d'un salon sans prestation, sans horaire ou sans coiffeur
+  n'invite plus à réserver : le tunnel n'aurait proposé aucun créneau. Le
+  numéro de téléphone du salon est proposé à la place, s'il est renseigné.
+- Commentaires renvoyant à des phases de livraison désormais achevées.
+
+## [1.3.0] - 2026-07-29
+
+### Added
+
+- **Écran de profil** (`/mon-compte/profil`) : prénom, nom et téléphone. Le
+  numéro n'était saisissable nulle part, alors que la case de consentement aux
+  SMS invitait à le renseigner « dans votre profil ». Tout le canal SMS —
+  consentement, rappels J-1, quota mensuel — était de ce fait inaccessible aux
+  clients disposant d'un compte.
+- Le téléphone peut être donné dès l'inscription, sans y être obligatoire.
+
+### Changed
+
+- Les numéros sont normalisés au format E.164 attendu par Twilio :
+  `06 12 34 56 78` devient `+33612345678`. Espaces, points, tirets et
+  parenthèses sont acceptés — les refuser aurait fait échouer une saisie
+  parfaitement lisible.
+- La case de consentement renvoie vers le profil par un lien, au lieu de
+  mentionner un écran inexistant.
+
+## [1.2.0] - 2026-07-29
+
+### Fixed
+
+- **Un salon monté par l'interface ne pouvait accepter aucune réservation.** Le
+  moteur de disponibilité croise les horaires d'ouverture du salon avec ceux de
+  chaque membre, sans repli : un membre sans horaires propres n'était jamais
+  proposé. Or rien ne permettait de les saisir. Les salons de démonstration
+  masquaient le défaut, leur seed écrivant ces horaires directement en base. Un
+  nouveau membre reprend désormais les horaires d'ouverture du salon, et
+  l'écran d'équipe signale tout membre qui n'en a aucun.
+
+### Added
+
+- **Horaires individuels par membre**, éditables depuis l'écran d'équipe.
+  `saveWorkingHoursAction` existait déjà mais n'était appelée par aucune
+  interface.
+- **Congés et absences par membre.** Même constat : le modèle, le moteur et les
+  actions serveur étaient en place, sans écran pour les atteindre.
+- Test de bout en bout montant un salon complet par l'interface — prestation,
+  horaires, membre, affectation — puis réservant. Son absence est ce qui a
+  laissé passer le défaut ci-dessus.
+
+### Changed
+
+- La grille de saisie d'une semaine est mutualisée entre les horaires
+  d'ouverture et ceux des membres (`WeekEditor`). Ses libellés accessibles
+  passent de « ouverture / fermeture » à « début / fin », valables dans les deux
+  cas.
+- `TeamPanel` dépassait les 490 lignes : le formulaire de fiche est extrait dans
+  `MemberForm`.
+
 ## [1.1.0] - 2026-07-29
 
 ### Added
