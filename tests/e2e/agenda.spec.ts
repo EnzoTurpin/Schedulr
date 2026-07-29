@@ -91,12 +91,14 @@ test('la gérante ouvre le détail d’un rendez-vous et le marque honoré', asy
   await page.goto(`/pro/${salonId}?date=${DATE}`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
 
-  const panel = page.getByRole('complementary', { name: 'Détail du rendez-vous' })
-  await expect(panel).toBeVisible()
-  await expect(panel.getByText('Coupe femme')).toBeVisible()
-  await expect(panel.getByText('35,00 €')).toBeVisible()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(
+    dialog.getByRole('definition').filter({ hasText: 'Coupe femme' }),
+  ).toHaveCount(1)
+  await expect(dialog.getByText('35,00 €')).toBeVisible()
 
-  await panel.getByRole('button', { name: 'Marquer honoré' }).click()
+  await dialog.getByRole('button', { name: 'Marquer honoré' }).click()
 
   await expect
     .poll(async () => {
@@ -126,26 +128,66 @@ test('la gérante marque un client absent, ce qui libère le créneau', async ({
     .toBe('NO_SHOW')
 })
 
-test('un déplacement au clavier décale le rendez-vous', async ({ page }) => {
-  // Exigence WCAG 2.1 AA : tout ce qui se fait à la souris doit se faire au
-  // clavier — ici le glisser-déposer.
+test('la gérante déplace un rendez-vous depuis sa fenêtre', async ({ page }) => {
+  // Le glisser-déposer a été retiré : décaler un rendez-vous d'un tremblement
+  // de souris coûtait trop cher. Le déplacement est désormais un acte explicite.
   await signInAsOwner(page)
   const appointment = await seedAppointment(14)
-  const before = appointment.startAt.getTime()
 
   await page.goto(`/pro/${salonId}?date=${DATE}`)
-  const block = page.getByRole('button', { name: /Madame Durand/ })
-  await block.focus()
-  await page.keyboard.press('ArrowDown')
+  await page.getByRole('button', { name: /Madame Durand/ }).click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: 'Déplacer' }).click()
+  await dialog.getByLabel('Début').fill(`${DATE}T16:30`)
+  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
   await expect
     .poll(async () => {
       const row = await e2eDb.appointment.findUniqueOrThrow({
         where: { id: appointment.id },
       })
-      return row.startAt.getTime() - before
+      return row.startAt.toISOString()
     })
-    .toBe(15 * 60_000)
+    .toBe(new Date(`${DATE}T16:30:00+02:00`).toISOString())
+})
+
+test('changer la durée depuis la fenêtre allonge le rendez-vous', async ({ page }) => {
+  await signInAsOwner(page)
+  const appointment = await seedAppointment(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: /Madame Durand/ }).click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: 'Déplacer' }).click()
+  await dialog.getByLabel('Durée').selectOption('90')
+  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+
+  await expect
+    .poll(async () => {
+      const row = await e2eDb.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
+      })
+      return (row.endAt.getTime() - row.startAt.getTime()) / 60_000
+    })
+    .toBe(90)
+})
+
+test('la grille ne déplace plus rien au clavier', async ({ page }) => {
+  // Souris et clavier sont désormais strictement équivalents : ni l'une ni
+  // l'autre ne modifie depuis la grille.
+  await signInAsOwner(page)
+  const appointment = await seedAppointment(14)
+  const before = appointment.startAt.toISOString()
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: /Madame Durand/ }).focus()
+  await page.keyboard.press('ArrowDown')
+  await page.waitForTimeout(300)
+
+  const row = await e2eDb.appointment.findUniqueOrThrow({ where: { id: appointment.id } })
+  expect(row.startAt.toISOString()).toBe(before)
 })
 
 test('un déplacement refusé remet le rendez-vous à sa place', async ({ page }) => {
@@ -168,8 +210,12 @@ test('un déplacement refusé remet le rendez-vous à sa place', async ({ page }
   })
 
   await page.goto(`/pro/${salonId}?date=${DATE}`)
-  await page.getByRole('button', { name: /À déplacer/ }).focus()
-  await page.keyboard.press('ArrowDown')
+  await page.getByRole('button', { name: /À déplacer/ }).click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', { name: 'Déplacer' }).click()
+  await dialog.getByLabel('Début').fill(`${DATE}T15:15`)
+  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
 
   // Message explicite, et non un échec silencieux. On cible notre alerte :
   // Next.js injecte son propre role="alert" pour annoncer les changements de
@@ -261,25 +307,6 @@ test('le formulaire de création se ferme avec Échap sans rien créer', async (
 
   await expect(page.getByRole('dialog')).not.toBeVisible()
   expect(await e2eDb.appointment.count()).toBe(0)
-})
-
-test('un redimensionnement au clavier allonge le rendez-vous', async ({ page }) => {
-  await signInAsOwner(page)
-  const appointment = await seedAppointment(14)
-  const before = appointment.endAt.getTime()
-
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
-  await page.getByRole('button', { name: /Madame Durand/ }).focus()
-  await page.keyboard.press('Shift+ArrowDown')
-
-  await expect
-    .poll(async () => {
-      const row = await e2eDb.appointment.findUniqueOrThrow({
-        where: { id: appointment.id },
-      })
-      return row.endAt.getTime() - before
-    })
-    .toBe(15 * 60_000)
 })
 
 test('la vue semaine affiche sept colonnes pour un coiffeur', async ({ page }) => {
