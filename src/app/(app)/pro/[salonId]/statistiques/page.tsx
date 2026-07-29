@@ -45,7 +45,7 @@ export default async function StatsPage({ params, searchParams }: Props) {
     getSalonStats(actor, salonId, { from, to }),
     getTopServices(actor, salonId, { from, to }),
     getStaffActivity(actor, salonId, { from, to }),
-    listFailedNotifications(salonId, 5),
+    listFailedNotifications(actor, salonId, 5),
   ])
 
   const isoFrom = from.toISOString().slice(0, 10)
