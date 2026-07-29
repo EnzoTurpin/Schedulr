@@ -5,6 +5,32 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.5.0] - 2026-07-29
+
+### Added
+
+- **Vérification de l'adresse électronique.** N'importe qui pouvait jusqu'ici
+  s'inscrire avec l'adresse d'un tiers et recevoir ses notifications de
+  rendez-vous : la colonne `emailVerified` n'était jamais renseignée ni lue.
+  Tant que l'adresse n'est pas confirmée, **seuls les courriels sont
+  suspendus** — bloquer la connexion enfermerait dehors quiconque a saisi son
+  adresse de travers.
+- **Changement de mot de passe**, qui ferme toutes les sessions. C'est le point
+  essentiel : changer son mot de passe après une compromission ne sert à rien
+  si la session de l'intrus reste ouverte.
+- **Fermeture de toutes les sessions** depuis le profil. `revokeAllSessions`
+  existait et était testée, sans aucune commande pour l'atteindre.
+- **Alerte au titulaire** lorsqu'une inscription est tentée sur son adresse.
+  L'auteur de la tentative n'apprend rien — ce serait un moyen d'énumérer les
+  comptes — mais le titulaire légitime, si.
+
+### Security
+
+- Les jetons à usage unique portent désormais un usage explicite. Sans lui, un
+  lien de confirmation d'adresse ouvrait une session, et demander un lien de
+  connexion effaçait une vérification en cours : les deux partagent la même
+  table.
+
 ## [1.4.0] - 2026-07-29
 
 ### Added

@@ -42,7 +42,13 @@ export type ProfileInput = z.infer<typeof profileSchema>
 export async function getProfile(actor: Actor) {
   return prisma.user.findUniqueOrThrow({
     where: { id: actor.userId },
-    select: { email: true, firstName: true, lastName: true, phone: true },
+    select: {
+      email: true,
+      emailVerified: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+    },
   })
 }
 

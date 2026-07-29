@@ -77,7 +77,7 @@ function AppointmentCard({
 export default async function ClientAreaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reservation?: string }>
+  searchParams: Promise<{ reservation?: string; adresse?: string }>
 }) {
   const actor = await requireActor()
   const params = await searchParams
@@ -101,6 +101,25 @@ export default async function ClientAreaPage({
           Mon profil
         </Link>
       </div>
+
+      {params.adresse === 'confirmee' && (
+        <p
+          role="status"
+          className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Votre adresse est confirmée. Vous recevrez désormais vos confirmations et
+          rappels.
+        </p>
+      )}
+      {params.adresse === 'expiree' && (
+        <p
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          Ce lien de confirmation n’est plus valable. Demandez-en un nouveau depuis votre
+          profil.
+        </p>
+      )}
 
       {params.reservation && (
         <p

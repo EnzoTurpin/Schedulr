@@ -50,7 +50,13 @@ async function ownerOf(salonId: string): Promise<Actor> {
   }
 }
 
-async function fixture(options: { withConsent?: boolean; withPhone?: boolean } = {}) {
+async function fixture(
+  options: {
+    withConsent?: boolean
+    withPhone?: boolean
+    emailVerified?: boolean
+  } = {},
+) {
   const salon = await testDb.salon.create({
     data: {
       slug: 'salon-notif',
@@ -76,6 +82,9 @@ async function fixture(options: { withConsent?: boolean; withPhone?: boolean } =
       email: 'cliente@example.fr',
       firstName: 'Léa',
       lastName: 'Petit',
+      // Une adresse non confirmée ne reçoit rien : le cas nominal suppose donc
+      // une confirmation, comme après un parcours d'inscription complet.
+      emailVerified: options.emailVerified === false ? null : new Date(),
       phone: options.withPhone === false ? null : '+33600000000',
     },
   })
@@ -122,6 +131,34 @@ describe('notifications', () => {
 
   afterAll(async () => {
     await testDb.$disconnect()
+  })
+
+  describe('adresse non confirmée', () => {
+    it('should withhold the email when the account address is unverified', async () => {
+      // Sans cette garde, un compte créé au nom d'un tiers recevrait les
+      // rendez-vous de celui-ci.
+      const { appointment } = await fixture({ emailVerified: false })
+
+      const summary = await loadAppointmentSummary(appointment.id)
+
+      expect(summary?.email).toBeNull()
+    })
+
+    it('should serve the email once the address is verified', async () => {
+      const { appointment } = await fixture()
+
+      const summary = await loadAppointmentSummary(appointment.id)
+
+      expect(summary?.email).toBe('cliente@example.fr')
+    })
+
+    it('should skip the email dispatch when the address is unverified', async () => {
+      const { appointment } = await fixture({ emailVerified: false })
+
+      const result = await notify('booking_confirmed', appointment.id)
+
+      expect(result.email).toEqual({ status: 'skipped', reason: 'no_recipient' })
+    })
   })
 
   describe('assemblage des données', () => {
