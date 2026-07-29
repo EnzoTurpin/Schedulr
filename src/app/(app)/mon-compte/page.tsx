@@ -95,7 +95,12 @@ export default async function ClientAreaPage({
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Mes rendez-vous</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Mes rendez-vous</h1>
+        <Link href="/mon-compte/profil" className="text-sm underline">
+          Mon profil
+        </Link>
+      </div>
 
       {params.reservation && (
         <p

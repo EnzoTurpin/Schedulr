@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { setConsentAction } from './actions'
 
@@ -63,9 +64,17 @@ export function ConsentToggle({
         <span className="text-sm">
           Recevoir un rappel par SMS la veille de mes rendez-vous
           <span id="aide-sms" className="mt-1 block text-slate-500">
-            {hasPhone
-              ? 'Vous pouvez revenir sur ce choix à tout moment.'
-              : 'Renseignez d’abord un numéro de téléphone dans votre profil.'}
+            {hasPhone ? (
+              'Vous pouvez revenir sur ce choix à tout moment.'
+            ) : (
+              <>
+                Renseignez d’abord un{' '}
+                <Link href="/mon-compte/profil" className="underline">
+                  numéro de téléphone
+                </Link>{' '}
+                dans votre profil.
+              </>
+            )}
           </span>
         </span>
       </label>

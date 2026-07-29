@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { phoneSchema } from '@/features/account/profile'
 import { MIN_PASSWORD_LENGTH } from './constants'
 
 /**
@@ -39,6 +40,9 @@ export const registerSchema = z.object({
     .max(200, 'Mot de passe trop long'),
   firstName: z.string().trim().min(1, 'Prénom requis').max(80),
   lastName: z.string().trim().min(1, 'Nom requis').max(80),
+  // Facultatif : le demander sans l'exiger évite un second passage par le
+  // profil à qui veut ses rappels par SMS.
+  phone: z.union([z.literal(''), phoneSchema]).optional(),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
