@@ -38,8 +38,6 @@ type Props = {
   timezone: string
   /** Coiffeurs entre lesquels le rendez-vous peut être déplacé. */
   staff: { id: string; label: string }[]
-  /** Vrai lorsque les colonnes sont des coiffeurs : sinon, elles sont des jours. */
-  canChangeMember: boolean
   canWrite: boolean
   pending: boolean
   onClose: () => void
@@ -56,7 +54,6 @@ export function AppointmentDialog({
   event,
   timezone,
   staff,
-  canChangeMember,
   canWrite,
   pending,
   onClose,
@@ -76,7 +73,7 @@ export function AppointmentDialog({
 
   const [start, setStart] = useState(() => toLocalInput(event.startAt, timezone))
   const [duration, setDuration] = useState(durationMin)
-  const [member, setMember] = useState(event.resourceId)
+  const [member, setMember] = useState(event.memberId)
   const [editing, setEditing] = useState(false)
 
   const closed = event.status === 'DONE' || event.status === 'NO_SHOW'
@@ -101,7 +98,7 @@ export function AppointmentDialog({
     onReschedule({
       startAt,
       endAt: startAt + duration * 60_000,
-      ...(canChangeMember && member !== event.resourceId ? { memberId: member } : {}),
+      ...(member !== event.memberId ? { memberId: member } : {}),
     })
   }
 
@@ -143,17 +140,11 @@ export function AppointmentDialog({
           <dt className="text-slate-500">Total</dt>
           <dd className="font-medium">{formatPrice(event.totalPriceCents)}</dd>
 
-          {/* `subtitle` porte les prestations, déjà listées ci-dessus : le
-              coiffeur se lit dans l'équipe, à partir de la colonne. */}
-          {canChangeMember && (
-            <>
-              <dt className="text-slate-500">Coiffeur</dt>
-              <dd>
-                {staff.find((person) => person.id === event.resourceId)?.label ??
-                  'Non attribué'}
-              </dd>
-            </>
-          )}
+          <dt className="text-slate-500">Coiffeur</dt>
+          <dd>
+            {staff.find((person) => person.id === event.memberId)?.label ??
+              'Non attribué'}
+          </dd>
 
           {event.clientPhone && (
             <>
@@ -219,7 +210,7 @@ export function AppointmentDialog({
                     </select>
                   </div>
 
-                  {canChangeMember && staff.length > 1 && (
+                  {staff.length > 1 && (
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                       <label htmlFor="rdv-coiffeur" className="text-sm">
                         Coiffeur

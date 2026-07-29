@@ -70,11 +70,145 @@ async function seedAppointment(hour: number, guestName = 'Madame Durand') {
   })
 }
 
-test('la gérante voit l’agenda du jour avec ses rendez-vous', async ({ page }) => {
+test('la vue semaine est celle par défaut', async ({ page }) => {
+  // C'est l'horizon sur lequel un salon raisonne : charge de la semaine, jours
+  // creux, congés à venir.
   await signInAsOwner(page)
   await seedAppointment(14)
 
   await page.goto(`/pro/${salonId}?date=${DATE}`)
+
+  await expect(
+    page.getByRole('button', { name: 'Semaine', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(
+    page.getByRole('group', { name: /^(lun|mar|mer|jeu|ven|sam|dim)/ }),
+  ).toHaveCount(7)
+})
+
+/** Ajoute un second coiffeur et lui pose un rendez-vous. */
+async function seedColleague(hour: number) {
+  const colleague = await e2eDb.salonMember.create({
+    data: {
+      salonId,
+      displayName: 'Sofia',
+      color: '#14b8a6',
+      isBookable: true,
+      services: { create: [{ salonId, serviceId }] },
+    },
+  })
+
+  const startAt = new Date(`${DATE}T${String(hour).padStart(2, '0')}:00:00+02:00`)
+  const appointment = await e2eDb.appointment.create({
+    data: {
+      salonId,
+      memberId: colleague.id,
+      guestName: 'Monsieur Colin',
+      startAt,
+      endAt: new Date(startAt.getTime() + 60 * 60_000),
+      source: 'PHONE',
+      items: {
+        create: {
+          salonId,
+          serviceId,
+          nameSnapshot: 'Coupe femme',
+          durationMin: 60,
+          priceCents: 3500,
+          position: 0,
+        },
+      },
+    },
+  })
+
+  return { colleague, appointment }
+}
+
+test('la vue semaine réunit toute l’équipe dans les mêmes colonnes', async ({ page }) => {
+  // Les colonnes sont des jours : deux coiffeurs cohabitent donc dans la même
+  // journée, distingués par leur couleur.
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  await seedColleague(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+
+  await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toBeVisible()
+  // Sept colonnes-jours, et non une par personne.
+  await expect(
+    page.getByRole('group', { name: /^(lun|mar|mer|jeu|ven|sam|dim)/ }),
+  ).toHaveCount(7)
+})
+
+test('chaque rendez-vous porte la couleur de son coiffeur', async ({ page }) => {
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  await seedColleague(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+
+  const first = page.getByRole('button', { name: /Madame Durand/ })
+  const second = page.getByRole('button', { name: /Monsieur Colin/ })
+
+  const colorOf = (block: typeof first) =>
+    block.evaluate((node) => getComputedStyle(node).borderLeftColor)
+
+  expect(await colorOf(first)).not.toBe(await colorOf(second))
+})
+
+test('décocher un coiffeur masque ses rendez-vous', async ({ page }) => {
+  // Les pastilles se comportent comme des cases à cocher : toutes actives au
+  // départ, un clic retire la personne de l'affichage.
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  await seedColleague(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: 'Sofia' }).click()
+
+  await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toHaveCount(0)
+
+  // La sélection vit dans l'URL : le lien est partageable et survit à un
+  // rechargement.
+  expect(new URL(page.url()).searchParams.get('membres')).toBe(memberId)
+  await page.reload()
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toHaveCount(0)
+})
+
+test('n’afficher qu’un coiffeur masque tous les autres', async ({ page }) => {
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  const { colleague } = await seedColleague(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}&membres=${colleague.id}`)
+
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Madame Durand/ })).toHaveCount(0)
+})
+
+test('revenir à toute l’équipe réaffiche tout le monde', async ({ page }) => {
+  await signInAsOwner(page)
+  await seedAppointment(14)
+  await seedColleague(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.getByRole('button', { name: 'Sofia' }).click()
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Toute l’équipe' }).click()
+
+  await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Monsieur Colin/ })).toBeVisible()
+  // Le paramètre disparaît : « tous » est l'état par défaut, pas une sélection.
+  expect(new URL(page.url()).searchParams.get('membres')).toBeNull()
+})
+
+test('la gérante voit l’agenda du jour avec ses rendez-vous', async ({ page }) => {
+  await signInAsOwner(page)
+  await seedAppointment(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
 
   await expect(page.getByRole('heading', { name: 'Salon Bout-en-Bout' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
@@ -88,7 +222,7 @@ test('la gérante ouvre le détail d’un rendez-vous et le marque honoré', asy
   await signInAsOwner(page)
   const appointment = await seedAppointment(14)
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
 
   const dialog = page.getByRole('dialog')
@@ -114,7 +248,7 @@ test('la gérante marque un client absent, ce qui libère le créneau', async ({
   await signInAsOwner(page)
   const appointment = await seedAppointment(14)
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
   await page.getByRole('button', { name: 'Client absent' }).click()
 
@@ -136,7 +270,7 @@ test('la fenêtre d’un rendez-vous s’ouvre centrée', async ({ page }) => {
   await seedAppointment(14)
   await page.setViewportSize({ width: 1280, height: 800 })
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
 
   const box = await page.getByRole('dialog').boundingBox()
@@ -152,7 +286,7 @@ test('la gérante déplace un rendez-vous depuis sa fenêtre', async ({ page }) 
   await signInAsOwner(page)
   const appointment = await seedAppointment(14)
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
 
   const dialog = page.getByRole('dialog')
@@ -174,7 +308,7 @@ test('changer la durée depuis la fenêtre allonge le rendez-vous', async ({ pag
   await signInAsOwner(page)
   const appointment = await seedAppointment(14)
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).click()
 
   const dialog = page.getByRole('dialog')
@@ -199,7 +333,7 @@ test('la grille ne déplace plus rien au clavier', async ({ page }) => {
   const appointment = await seedAppointment(14)
   const before = appointment.startAt.toISOString()
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /Madame Durand/ }).focus()
   await page.keyboard.press('ArrowDown')
   await page.waitForTimeout(300)
@@ -227,7 +361,7 @@ test('un déplacement refusé remet le rendez-vous à sa place', async ({ page }
     },
   })
 
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
   await page.getByRole('button', { name: /À déplacer/ }).click()
 
   const dialog = page.getByRole('dialog')
@@ -263,7 +397,7 @@ test('un client ne peut pas atteindre l’agenda d’un salon', async ({ page })
     },
   ])
 
-  const response = await page.goto(`/pro/${salonId}?date=${DATE}`)
+  const response = await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
 
   expect(response?.status()).toBe(404)
 })
@@ -271,7 +405,7 @@ test('un client ne peut pas atteindre l’agenda d’un salon', async ({ page })
 test('l’agenda n’a aucune violation d’accessibilité bloquante', async ({ page }) => {
   await signInAsOwner(page)
   await seedAppointment(14)
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
 
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
 
@@ -282,7 +416,7 @@ test('la gérante crée un rendez-vous au comptoir depuis une plage vide', async
   page,
 }) => {
   await signInAsOwner(page)
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
 
   // Un clic sur le fond de la colonne ouvre le formulaire de création.
   await page
@@ -314,7 +448,7 @@ test('le formulaire de création se ferme avec Échap sans rien créer', async (
   page,
 }) => {
   await signInAsOwner(page)
-  await page.goto(`/pro/${salonId}?date=${DATE}`)
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
 
   await page
     .getByRole('group', { name: 'Camille' })
@@ -327,7 +461,7 @@ test('le formulaire de création se ferme avec Échap sans rien créer', async (
   expect(await e2eDb.appointment.count()).toBe(0)
 })
 
-test('la vue semaine affiche sept colonnes pour un coiffeur', async ({ page }) => {
+test('la vue semaine affiche sept colonnes-jours', async ({ page }) => {
   await signInAsOwner(page)
   await seedAppointment(14)
 
@@ -338,11 +472,9 @@ test('la vue semaine affiche sept colonnes pour un coiffeur', async ({ page }) =
   await expect(
     page.getByRole('button', { name: 'Semaine', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true')
-  // Sept colonnes-jours, plus le sélecteur de coiffeur.
   await expect(
     page.getByRole('group', { name: /^(lun|mar|mer|jeu|ven|sam|dim)/ }),
   ).toHaveCount(7)
-  await expect(page.getByLabel('Coiffeur')).toBeVisible()
   await expect(page.getByRole('button', { name: /Madame Durand/ })).toBeVisible()
 })
 
