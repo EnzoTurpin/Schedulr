@@ -32,14 +32,14 @@ export default async function HomePage({
       <form role="search" className="mt-8 flex gap-3" action="/">
         <div className="flex-1">
           <label htmlFor="q" className="sr-only">
-            Ville ou nom du salon
+            Ville, salon ou prestation
           </label>
           <input
             id="q"
             name="q"
             type="search"
             defaultValue={params.q ?? ''}
-            placeholder="Ville ou nom du salon"
+            placeholder="Ville, salon ou prestation"
             className="w-full rounded-md border border-slate-300 px-4 py-2.5"
           />
         </div>
