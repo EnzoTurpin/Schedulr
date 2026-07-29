@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { SALON_ROLE_LABELS } from '@/lib/labels'
 import {
   deactivateMemberAction,
   inviteMemberAction,
@@ -43,12 +44,6 @@ type Props = {
   members: Member[]
   services: { id: string; name: string }[]
   invitations: Invitation[]
-}
-
-const ROLE_LABELS: Record<Member['role'], string> = {
-  OWNER: 'Gérant',
-  MANAGER: 'Manager',
-  STAFF: 'Coiffeur',
 }
 
 const DEFAULT_COLOR = '#8b5cf6'
@@ -246,7 +241,9 @@ export function TeamPanel({ salonId, members, services, invitations }: Props) {
                   style={{ backgroundColor: member.color }}
                 />
                 <span className="font-medium">{member.displayName}</span>
-                <span className="text-sm text-slate-500">{ROLE_LABELS[member.role]}</span>
+                <span className="text-sm text-slate-500">
+                  {SALON_ROLE_LABELS[member.role]}
+                </span>
                 {!member.isActive && (
                   <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
                     Désactivé
