@@ -66,6 +66,66 @@ export function buildMagicLinkEmail(to: string, token: string): EmailMessage {
   }
 }
 
+/** Confirmation d'adresse, envoyée à l'inscription. */
+export function buildVerificationEmail(to: string, token: string): EmailMessage {
+  const url = `${clientEnv.NEXT_PUBLIC_APP_URL}/api/compte/verification?jeton=${encodeURIComponent(token)}`
+
+  return {
+    to,
+    subject: 'Confirmez votre adresse — Schedulr',
+    html: wrap(
+      'Confirmez votre adresse',
+      [
+        '<p style="margin:0">Confirmez cette adresse pour recevoir les confirmations et rappels de vos rendez-vous. Ce lien expire dans 24 heures.</p>',
+        actionButton(url, 'Confirmer mon adresse'),
+        '<p style="margin:24px 0 0;font-size:14px;color:#64748b">Vous n’avez pas créé de compte ? Ignorez ce message : sans cette confirmation, aucun courriel ne vous sera envoyé.</p>',
+      ].join(''),
+    ),
+    text: [
+      'Confirmez votre adresse',
+      '',
+      'Ouvrez ce lien pour confirmer votre adresse. Il expire dans 24 heures.',
+      '',
+      url,
+      '',
+      'Vous n’avez pas créé de compte ? Ignorez ce message.',
+    ].join('\n'),
+  }
+}
+
+/**
+ * Alerte envoyée au titulaire d'une adresse déjà inscrite.
+ *
+ * L'inscription ne dit pas à son auteur que l'adresse est prise — ce serait un
+ * moyen d'énumérer les comptes. Le titulaire légitime, lui, doit l'apprendre :
+ * c'est son seul indice qu'on tente d'utiliser son adresse.
+ */
+export function buildDuplicateSignupEmail(to: string): EmailMessage {
+  const url = `${clientEnv.NEXT_PUBLIC_APP_URL}/connexion`
+
+  return {
+    to,
+    subject: 'Tentative d’inscription avec votre adresse — Schedulr',
+    html: wrap(
+      'Une inscription a été tentée',
+      [
+        '<p style="margin:0">Quelqu’un vient d’essayer de créer un compte avec cette adresse. Votre compte existant n’a pas été modifié et reste accessible.</p>',
+        '<p style="margin:16px 0 0">Si c’était vous, connectez-vous simplement. Sinon, aucune action n’est nécessaire.</p>',
+        actionButton(url, 'Me connecter'),
+      ].join(''),
+    ),
+    text: [
+      'Une inscription a été tentée avec votre adresse.',
+      '',
+      'Votre compte existant n’a pas été modifié. Si c’était vous, connectez-vous :',
+      '',
+      url,
+      '',
+      'Sinon, aucune action n’est nécessaire.',
+    ].join('\n'),
+  }
+}
+
 /** Invitation à rejoindre l'équipe d'un salon. */
 export function buildInvitationEmail(
   to: string,

@@ -8,9 +8,14 @@ export const metadata: Metadata = { title: 'Connexion' }
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ suite?: string; lien?: string }>
+  searchParams: Promise<{
+    suite?: string
+    lien?: string
+    motdepasse?: string
+    sessions?: string
+  }>
 }) {
-  const { suite, lien } = await searchParams
+  const { suite, lien, motdepasse, sessions } = await searchParams
 
   return (
     <main
@@ -29,6 +34,17 @@ export default async function LoginPage({
         >
           Ce lien de connexion n’est plus valable : il a déjà servi, ou plus de quinze
           minutes se sont écoulées. Demandez-en un nouveau.
+        </p>
+      )}
+
+      {(motdepasse === 'change' || sessions === 'fermees') && (
+        <p
+          role="status"
+          className="mt-6 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          {motdepasse === 'change'
+            ? 'Mot de passe modifié. Toutes vos sessions ont été fermées : reconnectez-vous.'
+            : 'Toutes vos sessions ont été fermées. Reconnectez-vous.'}
         </p>
       )}
 
