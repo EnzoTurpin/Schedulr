@@ -88,7 +88,7 @@ test('les tentatives de connexion répétées sont bloquées', async ({ page }) 
       page.waitForResponse(
         (response) => response.request().method() === 'POST' && response.status() < 400,
       ),
-      page.getByRole('button', { name: 'Se connecter' }).click(),
+      page.getByRole('button', { name: 'Se connecter', exact: true }).click(),
     ])
   }
 

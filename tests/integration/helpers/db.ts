@@ -45,6 +45,8 @@ export const testDb = new PrismaClient({
 export async function resetDatabase(): Promise<void> {
   await testDb.$executeRawUnsafe('DELETE FROM "Salon"')
   await testDb.$executeRawUnsafe('DELETE FROM "User"')
+  // Sans clé étrangère vers Salon ni User : à vider explicitement.
+  await testDb.$executeRawUnsafe('DELETE FROM "VerificationToken"')
 }
 
 /** Crée un salon minimal et valide. */

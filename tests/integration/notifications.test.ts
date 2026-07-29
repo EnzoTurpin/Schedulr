@@ -15,6 +15,7 @@ import {
   listFailedNotifications,
   sendDueReminders,
 } from '@/features/notifications/reminders'
+import { getSmsQuota } from '@/features/notifications/smsQuota'
 import type { Actor } from '@/lib/authz/types'
 import { resetDatabase, testDb } from './helpers/db'
 
@@ -510,5 +511,95 @@ describe('notifications', () => {
       expect(consents.TRANSACTIONAL_SMS).toBe(true)
       expect(consents.MARKETING_SMS).toBe(false)
     })
+  })
+})
+
+describe('plafond mensuel de SMS', () => {
+  beforeEach(async () => {
+    await resetDatabase()
+    clearCache()
+  })
+
+  it('should send the SMS while the quota allows it', async () => {
+    const { appointment } = await fixture({ withConsent: true })
+    const summary = (await loadAppointmentSummary(appointment.id))!
+
+    expect((await dispatch('reminder_j1', 'SMS', summary)).status).toBe('sent')
+  })
+
+  it('should skip the SMS once the quota is reached', async () => {
+    // Chaque SMS est facturé : le plafond protège d'une facture non maîtrisée.
+    const { salon, appointment } = await fixture({ withConsent: true })
+    await testDb.salon.update({
+      where: { id: salon.id },
+      data: { smsMonthlyQuota: 1 },
+    })
+    const summary = (await loadAppointmentSummary(appointment.id))!
+
+    await dispatch('booking_confirmed', 'SMS', summary)
+    const second = await dispatch('reminder_j1', 'SMS', summary)
+
+    expect(second).toEqual({ status: 'skipped', reason: 'quota_exceeded' })
+  })
+
+  it('should keep sending emails when the SMS quota is exhausted', async () => {
+    // Un salon qui dépasse son plafond doit continuer d'informer ses clients.
+    const { salon, appointment } = await fixture({ withConsent: true })
+    await testDb.salon.update({
+      where: { id: salon.id },
+      data: { smsMonthlyQuota: 0 },
+    })
+
+    const result = await notify('booking_confirmed', appointment.id)
+
+    expect(result.email.status).toBe('sent')
+    expect(result.sms).toEqual({ status: 'skipped', reason: 'quota_exceeded' })
+  })
+
+  it('should disable SMS entirely with a zero quota', async () => {
+    const { salon, appointment } = await fixture({ withConsent: true })
+    await testDb.salon.update({
+      where: { id: salon.id },
+      data: { smsMonthlyQuota: 0 },
+    })
+    const summary = (await loadAppointmentSummary(appointment.id))!
+
+    expect((await dispatch('reminder_j1', 'SMS', summary)).status).toBe('skipped')
+  })
+
+  it('should not count failed sends against the quota', async () => {
+    // Un SMS en échec n'est pas facturé.
+    const { salon, appointment } = await fixture({ withConsent: true })
+    await testDb.salon.update({
+      where: { id: salon.id },
+      data: { smsMonthlyQuota: 1 },
+    })
+    await testDb.notificationLog.create({
+      data: {
+        salonId: salon.id,
+        appointmentId: appointment.id,
+        channel: 'SMS',
+        template: 'booking_confirmed',
+        recipientHash: 'a'.repeat(64),
+        idempotencyKey: 'echec-sms',
+        status: 'FAILED',
+        attempts: 3,
+      },
+    })
+    const summary = (await loadAppointmentSummary(appointment.id))!
+
+    expect((await dispatch('reminder_j1', 'SMS', summary)).status).toBe('sent')
+  })
+
+  it('should report the quota state of the salon', async () => {
+    const { salon, appointment } = await fixture({ withConsent: true })
+    const summary = (await loadAppointmentSummary(appointment.id))!
+    await dispatch('booking_confirmed', 'SMS', summary)
+
+    const quota = await getSmsQuota(salon.id)
+
+    expect(quota.used).toBe(1)
+    expect(quota.quota).toBe(500)
+    expect(quota.exceeded).toBe(false)
   })
 })

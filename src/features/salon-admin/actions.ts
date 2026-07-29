@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { buildInvitationEmail, sendAuthEmail } from '@/features/notifications/authEmails'
 import { requireActor, UnauthenticatedError } from '@/lib/auth/actor'
 import { ForbiddenError, ResourceNotFoundError } from '@/lib/authz/types'
 import {
@@ -23,6 +24,7 @@ import {
   updateBookingSettings,
   updateSalonProfile,
 } from './settings'
+import { AlreadyLinkedError, inviteMember, revokeInvitation } from './invitations'
 import {
   createMember,
   createTimeOff,
@@ -43,6 +45,9 @@ import {
 export type ConfigResult = { ok: true } | { ok: false; error: string }
 
 function toError(error: unknown, context: Record<string, string>): ConfigResult {
+  if (error instanceof AlreadyLinkedError) {
+    return { ok: false, error: error.message }
+  }
   // Erreurs de saisie : leur message est déjà rédigé pour l'utilisateur.
   if (error instanceof InvalidScheduleError || error instanceof InvalidSettingsError) {
     return { ok: false, error: error.message }
@@ -421,6 +426,7 @@ const bookingSchema = z.object({
       message: `Le pas doit valoir ${ALLOWED_SLOT_STEPS.join(', ')} minutes.`,
     }),
   cancellationDeadlineHours: z.number().int().min(0),
+  smsMonthlyQuota: z.number().int().min(0),
 })
 
 export async function saveBookingSettingsAction(raw: unknown): Promise<ConfigResult> {
@@ -440,5 +446,58 @@ export async function saveBookingSettingsAction(raw: unknown): Promise<ConfigRes
     return { ok: true }
   } catch (error) {
     return toError(error, { salonId: id })
+  }
+}
+
+// --- Invitations -------------------------------------------------------------
+
+const inviteSchema = z.object({
+  salonId,
+  memberId: z.string().min(1),
+  email: z.string().trim().min(3).includes('@'),
+})
+
+export async function inviteMemberAction(raw: unknown): Promise<ConfigResult> {
+  const parsed = inviteSchema.safeParse(raw)
+  if (!parsed.success) return { ok: false, error: 'Adresse électronique invalide.' }
+
+  try {
+    const actor = await requireActor()
+    const invitation = await inviteMember(
+      actor,
+      parsed.data.salonId,
+      parsed.data.memberId,
+      parsed.data.email,
+    )
+
+    // L'envoi n'interrompt pas l'invitation : elle est créée en base, le lien
+    // peut être renvoyé si le courriel n'arrive pas.
+    await sendAuthEmail(
+      buildInvitationEmail(
+        invitation.email,
+        invitation.token,
+        invitation.salonName,
+        invitation.memberName,
+      ),
+    )
+
+    revalidateSalon(parsed.data.salonId)
+    return { ok: true }
+  } catch (error) {
+    return toError(error, { salonId: parsed.data.salonId })
+  }
+}
+
+export async function revokeInvitationAction(raw: unknown): Promise<ConfigResult> {
+  const parsed = z.object({ salonId, memberId: z.string().min(1) }).safeParse(raw)
+  if (!parsed.success) return { ok: false, error: 'Requête invalide.' }
+
+  try {
+    const actor = await requireActor()
+    await revokeInvitation(actor, parsed.data.salonId, parsed.data.memberId)
+    revalidateSalon(parsed.data.salonId)
+    return { ok: true }
+  } catch (error) {
+    return toError(error, { salonId: parsed.data.salonId })
   }
 }
