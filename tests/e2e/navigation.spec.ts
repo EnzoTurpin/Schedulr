@@ -104,3 +104,24 @@ test('un salon sans prestation n’invite pas à réserver', async ({ page }) =>
 
   await e2eDb.salon.delete({ where: { id: salon.id } })
 })
+
+test('les mentions légales sont accessibles depuis le pied de page', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Mentions légales' }).click()
+
+  await expect(page).toHaveURL(/\/mentions-legales/)
+  await expect(page.getByRole('heading', { name: 'Mentions légales' })).toBeVisible()
+
+  // Le gabarit signale ce qui reste à renseigner plutôt que d'inventer.
+  await expect(page.getByText(/À COMPLÉTER/).first()).toBeVisible()
+})
+
+test('la recherche publique trouve un salon par sa prestation', async ({ page }) => {
+  await seedE2e()
+
+  await page.goto('/')
+  await page.getByRole('searchbox').fill('Coupe femme')
+  await page.getByRole('button', { name: 'Rechercher' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Salon Bout-en-Bout' })).toBeVisible()
+})

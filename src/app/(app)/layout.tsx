@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-dvh">
       <header className="border-b border-slate-200">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-4">
           <Link href="/" className="font-semibold">
             Schedulr
           </Link>
@@ -54,7 +54,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main id="contenu" className="mx-auto max-w-4xl px-6 py-10">
+      {/* Plus large que les pages publiques : ce sont des écrans de gestion.
+          L'agenda multi-coiffeurs et les tableaux d'administration défilaient
+          horizontalement dès quatre colonnes. */}
+      <main id="contenu" className="mx-auto max-w-6xl px-6 py-10">
         {children}
       </main>
     </div>
