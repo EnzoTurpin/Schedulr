@@ -23,7 +23,7 @@ export const metadata: Metadata = { title: 'Agenda' }
 
 type Props = {
   params: Promise<{ salonId: string }>
-  searchParams: Promise<{ date?: string; view?: string; membre?: string }>
+  searchParams: Promise<{ date?: string; view?: string; membres?: string }>
 }
 
 /** Amplitude affichée, en heures locales du salon. */
@@ -59,7 +59,9 @@ export default async function AgendaPage({ params, searchParams }: Props) {
     notFound()
   }
 
-  const view: AgendaView = query.view === 'week' ? 'week' : 'day'
+  // La semaine est la vue par défaut : c'est l'horizon sur lequel un salon
+  // raisonne — charge de la semaine, jours creux, congés à venir.
+  const view: AgendaView = query.view === 'day' ? 'day' : 'week'
   const requested =
     query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date)
       ? query.date
@@ -71,12 +73,15 @@ export default async function AgendaPage({ params, searchParams }: Props) {
     listAgendaServices(salonId),
   ])
 
-  // Coiffeur affiché en vue semaine, borné à l'équipe réelle : un identifiant
-  // arbitraire dans l'URL ne doit pas produire un agenda vide sans explication.
-  const memberId =
-    view === 'week'
-      ? (staff.find((member) => member.id === query.membre)?.id ?? staff[0]?.id)
-      : undefined
+  // Coiffeurs affichés, bornés à l'équipe réelle : un identifiant arbitraire
+  // dans l'URL ne doit pas produire un agenda vide sans explication. Une
+  // sélection vide vaut « toute l'équipe ».
+  const requestedIds = (query.membres ?? '').split(',').filter(Boolean)
+  const selectedIds = staff
+    .filter((member) => requestedIds.includes(member.id))
+    .map((member) => member.id)
+
+  const shown = selectedIds.length > 0 ? selectedIds : staff.map((member) => member.id)
 
   /** Bornes locales d'un jour civil, converties en instants (ADR-0003). */
   const dayBounds = (day: string) => ({
@@ -89,7 +94,11 @@ export default async function AgendaPage({ params, searchParams }: Props) {
   const first = dayBounds(days[0]!)
   const last = dayBounds(days.at(-1)!)
 
-  const appointments = await listAgenda(salonId, first.from, last.to, memberId)
+  const all = await listAgenda(salonId, first.from, last.to)
+  const appointments = all.filter((appointment) => shown.includes(appointment.memberId))
+
+  const colorOf = (memberId: string) =>
+    staff.find((member) => member.id === memberId)?.color ?? '#8b5cf6'
 
   const toEvent = (
     appointment: Awaited<ReturnType<typeof listAgenda>>[number],
@@ -107,6 +116,10 @@ export default async function AgendaPage({ params, searchParams }: Props) {
     clientNote: appointment.clientNote,
     services: appointment.services,
     totalPriceCents: appointment.totalPriceCents,
+    // La couleur suit le coiffeur, y compris en vue semaine où la colonne
+    // représente un jour : c'est ce qui rend l'équipe lisible d'un coup d'œil.
+    color: colorOf(appointment.memberId),
+    memberId: appointment.memberId,
   })
 
   let resources: CalendarResource[]
@@ -121,7 +134,8 @@ export default async function AgendaPage({ params, searchParams }: Props) {
       return {
         id: day,
         label: formatDate(new Date(`${day}T12:00:00Z`), salon.timezone, 'EEE d'),
-        color: staff.find((member) => member.id === memberId)?.color ?? '#8b5cf6',
+        // Couleur de repli : chaque rendez-vous porte celle de son coiffeur.
+        color: '#94a3b8',
         scale: {
           startAt: bounds.from.getTime(),
           endAt: bounds.to.getTime(),
@@ -136,11 +150,13 @@ export default async function AgendaPage({ params, searchParams }: Props) {
       ),
     )
   } else {
-    resources = staff.map((member) => ({
-      id: member.id,
-      label: member.displayName,
-      color: member.color,
-    }))
+    resources = staff
+      .filter((member) => shown.includes(member.id))
+      .map((member) => ({
+        id: member.id,
+        label: member.displayName,
+        color: member.color,
+      }))
     events = appointments.map((appointment) => toEvent(appointment, appointment.memberId))
   }
 
@@ -184,8 +200,12 @@ export default async function AgendaPage({ params, searchParams }: Props) {
           date={date}
           view={view}
           resources={resources}
-          staff={staff.map((member) => ({ id: member.id, label: member.displayName }))}
-          memberId={memberId}
+          staff={staff.map((member) => ({
+            id: member.id,
+            label: member.displayName,
+            color: member.color,
+          }))}
+          selectedIds={selectedIds}
           events={events}
           services={services}
           scale={{

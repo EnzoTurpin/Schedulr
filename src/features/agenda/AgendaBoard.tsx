@@ -16,6 +16,7 @@ import {
   setStatusAction,
 } from './actions'
 import { AppointmentDialog } from './AppointmentDialog'
+import { StaffFilter } from './StaffFilter'
 import { WalkInDialog, type WalkInDraft } from './WalkInDialog'
 
 /**
@@ -28,6 +29,14 @@ import { WalkInDialog, type WalkInDraft } from './WalkInDialog'
  */
 
 export type AgendaEvent = CalendarEvent & {
+  /**
+   * Coiffeur qui réalise la prestation.
+   *
+   * Distinct de `resourceId` : en vue semaine, la colonne est un jour. C'est
+   * lui qui alimente le champ « Coiffeur » de la fenêtre et le déplacement
+   * d'une personne à l'autre.
+   */
+  memberId: string
   clientPhone: string | null
   staffNote: string | null
   clientNote: string | null
@@ -44,10 +53,10 @@ type Props = {
   view: AgendaView
   /** Colonnes : coiffeurs en vue jour, jours en vue semaine. */
   resources: CalendarResource[]
-  /** Équipe du salon, pour nommer le coiffeur dans le formulaire de création. */
-  staff: { id: string; label: string }[]
-  /** Coiffeur affiché en vue semaine. */
-  memberId?: string
+  /** Équipe du salon : nomme les coiffeurs et alimente le filtre. */
+  staff: { id: string; label: string; color: string }[]
+  /** Coiffeurs affichés. Vide vaut « toute l'équipe ». */
+  selectedIds: string[]
   events: AgendaEvent[]
   services: { id: string; name: string; durationMin: number; priceCents: number }[]
   scale: GridScale
@@ -68,7 +77,7 @@ export function AgendaBoard({
   view,
   resources,
   staff,
-  memberId,
+  selectedIds,
   events,
   services,
   scale,
@@ -83,8 +92,9 @@ export function AgendaBoard({
 
   // Les évènements viennent du serveur : une navigation doit primer sur l'état
   // optimiste conservé ici.
-  const [signature, setSignature] = useState(`${date}|${view}|${memberId ?? ''}`)
-  const nextSignature = `${date}|${view}|${memberId ?? ''}`
+  const key = `${date}|${view}|${selectedIds.join(',')}`
+  const [signature, setSignature] = useState(key)
+  const nextSignature = key
   if (signature !== nextSignature) {
     setSignature(nextSignature)
     setLocal(events)
@@ -95,15 +105,19 @@ export function AgendaBoard({
   const selected = local.find((event) => event.id === selectedId) ?? null
   const step = view === 'week' ? 7 : 1
 
-  function navigate(next: { date?: string; view?: AgendaView; member?: string }) {
+  function navigate(next: { date?: string; view?: AgendaView; members?: string[] }) {
     const params = new URLSearchParams({
       date: next.date ?? date,
       view: next.view ?? view,
     })
-    const member = next.member ?? memberId
-    if ((next.view ?? view) === 'week' && member) {
-      params.set('membre', member)
+
+    // Une sélection vide n'est pas écrite dans l'URL : elle vaut « toute
+    // l'équipe », et un paramètre vide brouillerait le lien partagé.
+    const members = next.members ?? selectedIds
+    if (members.length > 0) {
+      params.set('membres', members.join(','))
     }
+
     router.push(`/pro/${salonId}?${params}`)
   }
 
@@ -147,7 +161,11 @@ export function AgendaBoard({
           event.id === id
             ? {
                 ...event,
-                resourceId: next.memberId ?? event.resourceId,
+                memberId: next.memberId ?? event.memberId,
+                // En vue jour la colonne est le coiffeur ; en vue semaine c'est
+                // un jour, que seul un changement de date ferait bouger.
+                resourceId:
+                  view === 'day' ? (next.memberId ?? event.resourceId) : event.resourceId,
                 startAt: next.startAt,
                 endAt: next.endAt,
               }
@@ -192,7 +210,18 @@ export function AgendaBoard({
   function openDraft(next: { resourceId: string; startAt: number }) {
     // En vue semaine, la colonne désigne un jour : le coiffeur est celui déjà
     // sélectionné.
-    const targetMember = view === 'week' ? (memberId ?? staff[0]?.id) : next.resourceId
+    const shown = selectedIds.length > 0 ? selectedIds : staff.map((member) => member.id)
+    // En vue semaine, la colonne est un jour : le coiffeur ne s'en déduit pas.
+    // On ne peut le désigner sans ambiguïté que si un seul est affiché.
+    const targetMember =
+      view === 'week' ? (shown.length === 1 ? shown[0] : null) : next.resourceId
+
+    if (!targetMember) {
+      setError(
+        'Choisissez un seul coiffeur pour créer un rendez-vous depuis la vue semaine.',
+      )
+      return
+    }
     if (!targetMember) return
 
     setDraft({
@@ -228,26 +257,6 @@ export function AgendaBoard({
         </nav>
 
         <div className="flex items-center gap-3">
-          {view === 'week' && (
-            <>
-              <label htmlFor="membre" className="text-sm">
-                Coiffeur
-              </label>
-              <select
-                id="membre"
-                value={memberId ?? staff[0]?.id}
-                onChange={(domEvent) => navigate({ member: domEvent.target.value })}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
-              >
-                {staff.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.label}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
           <div
             className="flex rounded-md border border-slate-300"
             role="group"
@@ -266,7 +275,7 @@ export function AgendaBoard({
             </button>
             <button
               type="button"
-              onClick={() => navigate({ view: 'week', member: memberId ?? staff[0]?.id })}
+              onClick={() => navigate({ view: 'week' })}
               aria-pressed={view === 'week'}
               className={cn(
                 'rounded-r-md px-3 py-1.5 text-sm',
@@ -278,6 +287,16 @@ export function AgendaBoard({
           </div>
         </div>
       </div>
+
+      {staff.length > 1 && (
+        <div className="mt-4">
+          <StaffFilter
+            staff={staff}
+            selected={selectedIds}
+            onChange={(next) => navigate({ members: next })}
+          />
+        </div>
+      )}
 
       {error && (
         <p
@@ -318,9 +337,6 @@ export function AgendaBoard({
           event={selected}
           timezone={timezone}
           staff={staff}
-          // En vue semaine, les colonnes sont des jours : le coiffeur est déjà
-          // choisi et ne se change pas depuis cet écran.
-          canChangeMember={view === 'day'}
           canWrite={canWrite}
           pending={pending}
           onClose={() => setSelectedId(null)}
