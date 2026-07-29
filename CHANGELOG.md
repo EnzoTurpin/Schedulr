@@ -5,6 +5,16 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.7.1] - 2026-07-29
+
+### Fixed
+
+- **Les fenêtres modales s'ouvraient en haut à gauche** au lieu du centre. Le
+  navigateur centre un `<dialog>` modal par `margin: auto` ; le reset de
+  Tailwind v4 applique `margin: 0` à tous les éléments, ce qui écrasait ce
+  comportement. Concernait la fenêtre de rendez-vous et celle de création au
+  comptoir.
+
 ## [1.7.0] - 2026-07-29
 
 ### Changed
