@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { dayName, formatMinutesOfDay } from '@/lib/format'
+import { WeekEditor, compactWeek, type Week } from './WeekEditor'
 import {
   createClosureAction,
   deleteClosureAction,
@@ -16,9 +16,6 @@ import {
  * enregistrement partiel laisserait des plages orphelines.
  */
 
-type Range = { startMin: number; endMin: number }
-type Week = Record<number, Range[]>
-
 type Closure = { id: string; startAt: Date; endAt: Date; reason: string | null }
 
 type Props = {
@@ -28,15 +25,6 @@ type Props = {
   closures: Closure[]
 }
 
-/** Ordre d'affichage : la semaine commence le lundi, pas le dimanche. */
-const DAYS = [1, 2, 3, 4, 5, 6, 0]
-
-/** `HH:MM` → minutes depuis minuit. */
-function toMinutes(value: string): number {
-  const [hours, minutes] = value.split(':').map(Number)
-  return (hours ?? 0) * 60 + (minutes ?? 0)
-}
-
 export function SchedulePanel({ salonId, timezone, openingHours, closures }: Props) {
   const router = useRouter()
   const [week, setWeek] = useState<Week>(openingHours)
@@ -44,41 +32,10 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
   const [saved, setSaved] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  function updateRange(day: number, index: number, patch: Partial<Range>) {
-    setSaved(false)
-    setWeek((current) => ({
-      ...current,
-      [day]: (current[day] ?? []).map((range, i) =>
-        i === index ? { ...range, ...patch } : range,
-      ),
-    }))
-  }
-
-  function addRange(day: number) {
-    setSaved(false)
-    setWeek((current) => ({
-      ...current,
-      [day]: [...(current[day] ?? []), { startMin: 9 * 60, endMin: 19 * 60 }],
-    }))
-  }
-
-  function removeRange(day: number, index: number) {
-    setSaved(false)
-    setWeek((current) => ({
-      ...current,
-      [day]: (current[day] ?? []).filter((_, i) => i !== index),
-    }))
-  }
-
   function save() {
     setError(null)
     startTransition(async () => {
-      const result = await saveOpeningHoursAction({
-        salonId,
-        week: Object.fromEntries(
-          Object.entries(week).filter(([, ranges]) => ranges.length > 0),
-        ),
-      })
+      const result = await saveOpeningHoursAction({ salonId, week: compactWeek(week) })
       if (!result.ok) {
         setError(result.error)
         return
@@ -126,69 +83,16 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
         </p>
       )}
 
-      <ul className="mt-5 divide-y divide-slate-200">
-        {DAYS.map((day) => {
-          const ranges = week[day] ?? []
-          return (
-            <li key={day} className="flex flex-wrap items-start gap-4 py-4">
-              <span className="w-24 shrink-0 pt-2 font-medium">{dayName(day)}</span>
-
-              <div className="flex-1">
-                {ranges.length === 0 && (
-                  <p className="pt-2 text-sm text-slate-500">Fermé</p>
-                )}
-
-                {ranges.map((range, index) => (
-                  <div key={index} className="mb-2 flex flex-wrap items-center gap-2">
-                    <label className="sr-only" htmlFor={`start-${day}-${index}`}>
-                      {dayName(day)} — ouverture, plage {index + 1}
-                    </label>
-                    <input
-                      id={`start-${day}-${index}`}
-                      type="time"
-                      step={300}
-                      value={formatMinutesOfDay(range.startMin)}
-                      onChange={(e) =>
-                        updateRange(day, index, { startMin: toMinutes(e.target.value) })
-                      }
-                      className="rounded-md border border-slate-300 px-2 py-1.5"
-                    />
-                    <span aria-hidden="true">–</span>
-                    <label className="sr-only" htmlFor={`end-${day}-${index}`}>
-                      {dayName(day)} — fermeture, plage {index + 1}
-                    </label>
-                    <input
-                      id={`end-${day}-${index}`}
-                      type="time"
-                      step={300}
-                      value={formatMinutesOfDay(range.endMin)}
-                      onChange={(e) =>
-                        updateRange(day, index, { endMin: toMinutes(e.target.value) })
-                      }
-                      className="rounded-md border border-slate-300 px-2 py-1.5"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeRange(day, index)}
-                      className="text-sm text-slate-600 underline"
-                    >
-                      Retirer
-                    </button>
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={() => addRange(day)}
-                  className="text-sm text-slate-600 underline"
-                >
-                  Ajouter une plage
-                </button>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+      <div className="mt-5">
+        <WeekEditor
+          week={week}
+          onChange={(next) => {
+            setSaved(false)
+            setWeek(next)
+          }}
+          idPrefix="ouverture"
+        />
+      </div>
 
       <button
         type="button"

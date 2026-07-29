@@ -5,6 +5,38 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.2.0] - 2026-07-29
+
+### Fixed
+
+- **Un salon monté par l'interface ne pouvait accepter aucune réservation.** Le
+  moteur de disponibilité croise les horaires d'ouverture du salon avec ceux de
+  chaque membre, sans repli : un membre sans horaires propres n'était jamais
+  proposé. Or rien ne permettait de les saisir. Les salons de démonstration
+  masquaient le défaut, leur seed écrivant ces horaires directement en base. Un
+  nouveau membre reprend désormais les horaires d'ouverture du salon, et
+  l'écran d'équipe signale tout membre qui n'en a aucun.
+
+### Added
+
+- **Horaires individuels par membre**, éditables depuis l'écran d'équipe.
+  `saveWorkingHoursAction` existait déjà mais n'était appelée par aucune
+  interface.
+- **Congés et absences par membre.** Même constat : le modèle, le moteur et les
+  actions serveur étaient en place, sans écran pour les atteindre.
+- Test de bout en bout montant un salon complet par l'interface — prestation,
+  horaires, membre, affectation — puis réservant. Son absence est ce qui a
+  laissé passer le défaut ci-dessus.
+
+### Changed
+
+- La grille de saisie d'une semaine est mutualisée entre les horaires
+  d'ouverture et ceux des membres (`WeekEditor`). Ses libellés accessibles
+  passent de « ouverture / fermeture » à « début / fin », valables dans les deux
+  cas.
+- `TeamPanel` dépassait les 490 lignes : le formulaire de fiche est extrait dans
+  `MemberForm`.
+
 ## [1.1.0] - 2026-07-29
 
 ### Added
