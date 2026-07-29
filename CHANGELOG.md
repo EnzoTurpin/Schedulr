@@ -5,6 +5,26 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.3.0] - 2026-07-29
+
+### Added
+
+- **Écran de profil** (`/mon-compte/profil`) : prénom, nom et téléphone. Le
+  numéro n'était saisissable nulle part, alors que la case de consentement aux
+  SMS invitait à le renseigner « dans votre profil ». Tout le canal SMS —
+  consentement, rappels J-1, quota mensuel — était de ce fait inaccessible aux
+  clients disposant d'un compte.
+- Le téléphone peut être donné dès l'inscription, sans y être obligatoire.
+
+### Changed
+
+- Les numéros sont normalisés au format E.164 attendu par Twilio :
+  `06 12 34 56 78` devient `+33612345678`. Espaces, points, tirets et
+  parenthèses sont acceptés — les refuser aurait fait échouer une saisie
+  parfaitement lisible.
+- La case de consentement renvoie vers le profil par un lien, au lieu de
+  mentionner un écran inexistant.
+
 ## [1.2.0] - 2026-07-29
 
 ### Fixed

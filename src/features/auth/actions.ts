@@ -107,6 +107,7 @@ export async function register(
     password: formData.get('password'),
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
+    phone: formData.get('phone') ?? '',
   })
 
   if (!parsed.success) {
@@ -136,6 +137,7 @@ export async function register(
       passwordHash: await hashPassword(parsed.data.password),
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
+      phone: parsed.data.phone || null,
     },
     select: { id: true },
   })
