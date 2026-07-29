@@ -79,7 +79,7 @@ test('la gérante modifie les horaires d’ouverture', async ({ page }) => {
   await page.goto(`/pro/${salonId}/configuration/horaires`)
 
   // Le seed ouvre 9 h–19 h tous les jours : on décale l'ouverture du lundi.
-  await page.getByLabel('Lundi — ouverture, plage 1').fill('10:30')
+  await page.getByLabel('Lundi — début, plage 1').fill('10:30')
   await page.getByRole('button', { name: 'Enregistrer les horaires' }).click()
 
   await expect(page.getByRole('status')).toContainText('Horaires enregistrés')
@@ -93,7 +93,7 @@ test('les horaires incohérents sont refusés avec un message clair', async ({ p
   await page.goto(`/pro/${salonId}/configuration/horaires`)
 
   // Fermeture avant l'ouverture.
-  await page.getByLabel('Lundi — fermeture, plage 1').fill('07:00')
+  await page.getByLabel('Lundi — fin, plage 1').fill('07:00')
   await page.getByRole('button', { name: 'Enregistrer les horaires' }).click()
 
   await expect(page.locator('p[role="alert"]')).toContainText(/doit suivre l’ouverture/)
