@@ -223,3 +223,70 @@ test('le tunnel est utilisable entièrement au clavier', async ({ page }) => {
     page.getByRole('heading', { name: /Choisissez votre coiffeur/ }),
   ).toBeVisible()
 })
+
+test('un chevauchement avec un autre rendez-vous est signalé sans être bloqué', async ({
+  page,
+}) => {
+  // Un parent réservant pour son enfant depuis son propre compte est un cas
+  // légitime : on avertit, on ne refuse pas. Une contrainte en base
+  // l'interdirait et franchirait la frontière inter-salons.
+  await signIn(page)
+
+  const salon = await e2eDb.salon.findFirstOrThrow({ where: { slug: SALON_SLUG } })
+  const member = await e2eDb.salonMember.findFirstOrThrow({
+    where: { salonId: salon.id, isBookable: true },
+  })
+  const service = await e2eDb.service.findFirstOrThrow({ where: { salonId: salon.id } })
+
+  await page.goto(`/reserver/${SALON_SLUG}`)
+  await page.getByRole('checkbox', { name: /Coupe femme/ }).check()
+  await page.getByRole('button', { name: 'Continuer' }).click()
+  await page.getByRole('button', { name: 'Continuer' }).click()
+
+  await page.getByLabel('À partir du').fill(inDays(3))
+  const slot = page
+    .locator('button[aria-pressed]')
+    .filter({ hasText: /^\d{2}:\d{2}$/ })
+    .first()
+  await expect(slot).toBeVisible({ timeout: 15_000 })
+
+  // Un rendez-vous concurrent est posé sur le créneau visé, chez un autre
+  // coiffeur : la contrainte anti-chevauchement ne s'y oppose pas.
+  // L'instant est construit avec le décalage de Paris explicite. `setHours`
+  // travaillerait dans le fuseau de la machine — UTC sur un runner CI, Paris en
+  // local — et décalerait le rendez-vous de deux heures, sans chevauchement.
+  const label = (await slot.textContent())!.trim()
+  const conflict = new Date(`${inDays(3)}T${label}:00+02:00`)
+
+  const other = await e2eDb.salonMember.create({
+    data: {
+      salonId: salon.id,
+      displayName: 'Autre coiffeur',
+      isBookable: true,
+      services: { create: [{ salonId: salon.id, serviceId: service.id }] },
+    },
+  })
+  await e2eDb.appointment.create({
+    data: {
+      salonId: salon.id,
+      memberId: other.id,
+      clientId: userId,
+      startAt: conflict,
+      endAt: new Date(conflict.getTime() + 60 * 60_000),
+    },
+  })
+
+  await slot.click()
+  await page.getByRole('button', { name: 'Continuer' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Récapitulatif' })).toBeVisible()
+  await expect(page.getByText(/Vous avez déjà/)).toBeVisible()
+
+  // L'avertissement n'empêche pas de confirmer.
+  await page.getByRole('button', { name: 'Confirmer le rendez-vous' }).click()
+  await expect(page).toHaveURL(/\/mon-compte/)
+
+  expect(
+    await e2eDb.appointment.count({ where: { clientId: userId, memberId: member.id } }),
+  ).toBeGreaterThan(0)
+})
