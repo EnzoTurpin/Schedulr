@@ -149,7 +149,6 @@ export async function getPublicSalon(slug: string) {
           id: true,
           displayName: true,
           bio: true,
-          avatarUrl: true,
           services: { select: { serviceId: true } },
         },
       },

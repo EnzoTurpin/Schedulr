@@ -91,6 +91,8 @@ model SalonMember {
   /// exercer sous un prénom seul.
   displayName String
   bio         String?
+  /// Réservé à l'implémentation de l'ADR-0006, en attente du choix d'un
+  /// fournisseur de stockage. Aucune lecture ni écriture pour l'instant.
   avatarUrl   String?
 
   /// Couleur de sa colonne dans l'agenda, au format hexadécimal.
