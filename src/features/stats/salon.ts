@@ -123,14 +123,34 @@ export async function getSalonStats(
  * disponibilité sur toute la période, ce qui n'est pas justifié pour un
  * indicateur de pilotage.
  */
+/**
+ * Minutes théoriquement ouvrables sur la période.
+ *
+ * Les congés et les fermetures sont retranchés : sans cela, un coiffeur en
+ * vacances comptait toujours comme capacité et le taux d'occupation était
+ * sous-estimé d'autant. L'écart était admissible tant que les congés n'étaient
+ * pas saisissables ; il ne l'est plus.
+ */
 async function computeCapacityMinutes(
   salonId: string,
   period: StatsPeriod,
 ): Promise<number> {
-  const workingHours = await forSalon(salonId).workingHour.findMany({
-    where: { member: { isActive: true } },
-    select: { dayOfWeek: true, startMin: true, endMin: true },
-  })
+  const db = forSalon(salonId)
+
+  const [workingHours, timeOff, closures] = await Promise.all([
+    db.workingHour.findMany({
+      where: { member: { isActive: true } },
+      select: { memberId: true, dayOfWeek: true, startMin: true, endMin: true },
+    }),
+    db.timeOff.findMany({
+      where: { startAt: { lt: period.to }, endAt: { gt: period.from } },
+      select: { memberId: true, startAt: true, endAt: true },
+    }),
+    db.closure.findMany({
+      where: { startAt: { lt: period.to }, endAt: { gt: period.from } },
+      select: { startAt: true, endAt: true },
+    }),
+  ])
 
   if (workingHours.length === 0) return 0
 
@@ -147,10 +167,47 @@ async function computeCapacityMinutes(
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
 
-  return workingHours.reduce((sum, range) => {
+  const gross = workingHours.reduce((sum, range) => {
     const count = occurrences.get(range.dayOfWeek) ?? 0
     return sum + (range.endMin - range.startMin) * count
   }, 0)
+
+  /** Minutes d'une absence, bornées à la période observée. */
+  const overlapMinutes = (from: Date, to: Date) => {
+    const start = Math.max(from.getTime(), period.from.getTime())
+    const end = Math.min(to.getTime(), period.to.getTime())
+    return Math.max(0, (end - start) / 60_000)
+  }
+
+  // Part des heures travaillées d'un membre dans une journée moyenne : une
+  // absence ne retire que le temps qu'il aurait effectivement ouvert, pas
+  // vingt-quatre heures.
+  const dailyMinutes = new Map<string, number>()
+  for (const range of workingHours) {
+    const width = range.endMin - range.startMin
+    dailyMinutes.set(range.memberId, (dailyMinutes.get(range.memberId) ?? 0) + width)
+  }
+  const weeklyDays = new Set(workingHours.map((range) => range.dayOfWeek)).size || 1
+
+  let deducted = 0
+
+  for (const absence of timeOff) {
+    const days = overlapMinutes(absence.startAt, absence.endAt) / (24 * 60)
+    const perDay = (dailyMinutes.get(absence.memberId) ?? 0) / weeklyDays
+    deducted += days * perDay
+  }
+
+  // Une fermeture du salon touche toute l'équipe.
+  const totalPerDay =
+    [...dailyMinutes.values()].reduce((sum, minutes) => sum + minutes, 0) / weeklyDays
+  for (const closure of closures) {
+    const days = overlapMinutes(closure.startAt, closure.endAt) / (24 * 60)
+    deducted += days * totalPerDay
+  }
+
+  // La capacité ne peut pas devenir négative : congés et fermetures peuvent se
+  // recouvrir, et les compter deux fois n'aurait aucun sens.
+  return Math.max(0, gross - deducted)
 }
 
 /** Prestations les plus vendues sur la période. */

@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { confirmBooking, fetchSlots, type SlotView } from './actions'
+import {
+  checkClientOverlapAction,
+  confirmBooking,
+  fetchSlots,
+  type SlotView,
+} from './actions'
 import {
   formatDayLong,
   formatDuration,
@@ -61,6 +66,7 @@ export function BookingFlow({ salonId, salonSlug, timezone, services, members }:
   const [slots, setSlots] = useState<SlotView[]>([])
   const [chosen, setChosen] = useState<SlotView | null>(null)
   const [note, setNote] = useState('')
+  const [conflicts, setConflicts] = useState<{ startAt: number; salonName: string }[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [pending, startTransition] = useTransition()
@@ -327,6 +333,32 @@ export function BookingFlow({ salonId, salonSlug, timezone, services, members }:
             <dd className="font-medium">{formatPrice(totalPrice)}</dd>
           </dl>
 
+          {conflicts.length > 0 && (
+            <div
+              role="status"
+              className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              <p>
+                Vous avez déjà{' '}
+                {conflicts.length === 1
+                  ? 'un rendez-vous'
+                  : `${conflicts.length} rendez-vous`}{' '}
+                sur ce créneau :
+              </p>
+              <ul className="mt-2 list-inside list-disc">
+                {conflicts.map((conflict) => (
+                  <li key={`${conflict.salonName}-${conflict.startAt}`}>
+                    {conflict.salonName} à {formatTime(conflict.startAt, timezone)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2">
+                Vous pouvez confirmer malgré tout — par exemple si vous réservez pour
+                quelqu’un d’autre.
+              </p>
+            </div>
+          )}
+
           <p className="mt-4 text-sm text-slate-500">Le règlement s’effectue au salon.</p>
 
           <div className="mt-6">
@@ -367,7 +399,21 @@ export function BookingFlow({ salonId, salonSlug, timezone, services, members }:
         ) : (
           <button
             type="button"
-            onClick={() => setStep(STEPS[currentIndex + 1]!.id)}
+            onClick={() => {
+              const next = STEPS[currentIndex + 1]!.id
+              // Le conflit se cherche en entrant dans le récapitulatif : le
+              // créneau est arrêté, et l'avertissement s'y affiche.
+              if (next === 'confirm' && chosen) {
+                startTransition(async () => {
+                  const result = await checkClientOverlapAction({
+                    startAt: chosen.startAt,
+                    endAt: chosen.startAt + totalDuration * 60_000,
+                  })
+                  setConflicts(result.conflicts)
+                })
+              }
+              setStep(next)
+            }}
             disabled={
               (step === 'services' && selected.length === 0) ||
               (step === 'staff' && eligibleMembers.length === 0) ||

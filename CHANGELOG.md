@@ -5,6 +5,23 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.11.0] - 2026-07-30
+
+### Fixed
+
+- **Le taux d'occupation ignorait congés et fermetures.** Un coiffeur en
+  vacances comptait toujours comme capacité, l'indicateur était donc
+  sous-estimé. L'approximation était admissible tant que les congés n'étaient
+  pas saisissables ; elle ne l'était plus depuis la 1.2.0. La capacité ne peut
+  pas devenir négative lorsque congés et fermetures se recouvrent.
+
+### Added
+
+- **Avertissement de chevauchement au récapitulatif** : un client déjà pris sur
+  le créneau visé en est informé, tous salons confondus. Averti et non refusé —
+  un parent réservant pour son enfant depuis son propre compte est un cas
+  légitime, qu'une contrainte en base interdirait.
+
 ## [1.10.0] - 2026-07-30
 
 ### Added

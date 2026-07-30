@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { getAvailability } from '@/features/availability'
+import { crossSalon } from '@/lib/db/scoped'
 import { requireActor, UnauthenticatedError } from '@/lib/auth/actor'
 import { assertCan } from '@/lib/authz/can'
 import { ForbiddenError, ResourceNotFoundError } from '@/lib/authz/types'
@@ -150,5 +151,54 @@ export async function cancelAppointment(appointmentId: string): Promise<CancelRe
     }
     console.error('cancelAppointment', { error })
     return { ok: false, error: 'L’annulation a échoué. Réessayez.' }
+  }
+}
+
+/**
+ * Rendez-vous du client chevauchant un créneau, tous salons confondus.
+ *
+ * Averti et non refusé : un parent réservant pour son enfant depuis son propre
+ * compte est un cas légitime, qu'une contrainte en base interdirait. La lecture
+ * franchit délibérément la frontière inter-salons — le conflit d'agenda d'une
+ * personne ne s'arrête pas à la porte d'un salon.
+ */
+export async function checkClientOverlapAction(raw: unknown): Promise<{
+  ok: boolean
+  conflicts: { startAt: number; salonName: string }[]
+}> {
+  const parsed = z
+    .object({ startAt: z.number().int().positive(), endAt: z.number().int().positive() })
+    .safeParse(raw)
+  if (!parsed.success) return { ok: false, conflicts: [] }
+
+  try {
+    const actor = await requireActor()
+
+    const rows = await crossSalon(
+      'conflit d’agenda du client, tous salons confondus',
+    ).appointment.findMany({
+      where: {
+        clientId: actor.userId,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        startAt: { lt: new Date(parsed.data.endAt) },
+        endAt: { gt: new Date(parsed.data.startAt) },
+      },
+      orderBy: { startAt: 'asc' },
+      take: 5,
+      select: { startAt: true, salon: { select: { name: true } } },
+    })
+
+    return {
+      ok: true,
+      conflicts: rows.map((row) => ({
+        startAt: row.startAt.getTime(),
+        salonName: row.salon.name,
+      })),
+    }
+  } catch (error) {
+    // L'avertissement est un confort : son échec ne doit pas bloquer la
+    // réservation.
+    console.error('checkClientOverlapAction', { error })
+    return { ok: false, conflicts: [] }
   }
 }
