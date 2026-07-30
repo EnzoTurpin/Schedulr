@@ -1,4 +1,5 @@
 import { invalidateSalon } from '@/features/availability'
+import { notify } from '@/features/notifications/dispatch'
 import { assertCan } from '@/lib/authz/can'
 import { ResourceNotFoundError, type Actor } from '@/lib/authz/types'
 import { prisma } from '@/lib/db/client'
@@ -149,7 +150,33 @@ export async function moveAppointment(actor: Actor, input: MoveAppointmentInput)
   )
 
   invalidateSalon(input.salonId)
+
+  // Le client doit être prévenu : sans cela il se présente à l'ancien horaire.
+  // Un changement de coiffeur seul ne bouge pas l'heure, mais concerne tout
+  // autant la personne qui vient.
+  await notifyUpdated(existing, updated)
+
   return updated
+}
+
+/**
+ * Prévient le client d'un déplacement.
+ *
+ * L'échec de l'envoi ne remet pas en cause le déplacement : celui-ci est déjà
+ * enregistré, et la reprise sur échec du journal de notifications s'en
+ * chargera. Lever ici défferait une opération réussie.
+ */
+async function notifyUpdated(
+  before: { startAt: Date; memberId: string },
+  after: { id: string; startAt: Date; memberId: string },
+): Promise<void> {
+  const moved = before.startAt.getTime() !== after.startAt.getTime()
+  const reassigned = before.memberId !== after.memberId
+  if (!moved && !reassigned) return
+
+  await notify('booking_updated', after.id).catch((error: unknown) => {
+    console.error('notifyUpdated', { appointmentId: after.id, error })
+  })
 }
 
 export type ResizeAppointmentInput = {

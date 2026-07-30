@@ -46,7 +46,7 @@ test('la gérante crée une prestation depuis la configuration', async ({ page }
   await page.goto(`/pro/${salonId}/configuration`)
 
   await page.getByRole('button', { name: 'Ajouter une prestation' }).click()
-  await page.getByLabel('Nom').fill('Balayage')
+  await page.getByLabel('Nom', { exact: true }).fill('Balayage')
   await page.getByLabel('Durée (minutes)').fill('90')
   await page.getByLabel('Prix (€)').fill('95')
   await page.getByLabel('Remise en état après (min)').fill('15')
@@ -182,7 +182,7 @@ test('une prestation créée devient réservable par un client', async ({ page }
   await page.goto(`/pro/${salonId}/configuration`)
 
   await page.getByRole('button', { name: 'Ajouter une prestation' }).click()
-  await page.getByLabel('Nom').fill('Soin profond')
+  await page.getByLabel('Nom', { exact: true }).fill('Soin profond')
   await page.getByLabel('Durée (minutes)').fill('30')
   await page.getByLabel('Prix (€)').fill('38')
   await page.getByRole('button', { name: 'Enregistrer' }).click()
@@ -220,4 +220,47 @@ test('les écrans de configuration n’ont aucune violation d’accessibilité',
       `violations sur ${path || '/'}`,
     ).toEqual([])
   }
+})
+
+test('la gérante renomme une catégorie', async ({ page }) => {
+  // `renameCategory` existait sans action serveur ni écran : on créait et
+  // supprimait une catégorie, sans jamais pouvoir corriger son nom.
+  await signIn(page, ownerId)
+  const category = await e2eDb.serviceCategory.create({
+    data: { salonId, name: 'Coupes', position: 0 },
+  })
+
+  await page.goto(`/pro/${salonId}/configuration`)
+  await page.getByRole('button', { name: 'Renommer la catégorie Coupes' }).click()
+  await page.getByLabel('Nouveau nom de la catégorie Coupes').fill('Coupe et coiffage')
+  await page.getByRole('button', { name: 'Enregistrer' }).click()
+
+  await expect
+    .poll(async () => {
+      const row = await e2eDb.serviceCategory.findUniqueOrThrow({
+        where: { id: category.id },
+      })
+      return row.name
+    })
+    .toBe('Coupe et coiffage')
+})
+
+test('le journal du salon liste les actes de configuration', async ({ page }) => {
+  // Le droit `audit:read_salon` existait, réservé au gérant, sans écran.
+  await signIn(page, ownerId)
+  const member = await e2eDb.salonMember.findFirstOrThrow({ where: { salonId } })
+  await e2eDb.auditLog.create({
+    data: {
+      salonId,
+      action: 'member.deactivated',
+      targetType: 'SalonMember',
+      targetId: member.id,
+      metadata: {},
+    },
+  })
+
+  await page.goto(`/pro/${salonId}/journal`)
+
+  await expect(page.getByRole('heading', { name: 'Journal du salon' })).toBeVisible()
+  await expect(page.getByText('Membre désactivé')).toBeVisible()
 })

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import {
   moveAppointmentAction,
   resizeAppointmentAction,
+  setStaffNoteAction,
   setStatusAction,
 } from './actions'
 import { AppointmentDialog } from './AppointmentDialog'
@@ -207,10 +208,18 @@ export function AgendaBoard({
     })
   }
 
+  /** Enregistre une note interne, sans fermer la fenêtre. */
+  function saveNote(id: string, staffNote: string) {
+    optimistic(
+      (current) =>
+        current.map((event) => (event.id === id ? { ...event, staffNote } : event)),
+      () => setStaffNoteAction({ salonId, appointmentId: id, staffNote }),
+    )
+  }
+
   function openDraft(next: { resourceId: string; startAt: number }) {
-    // En vue semaine, la colonne désigne un jour : le coiffeur est celui déjà
-    // sélectionné.
     const shown = selectedIds.length > 0 ? selectedIds : staff.map((member) => member.id)
+
     // En vue semaine, la colonne est un jour : le coiffeur ne s'en déduit pas.
     // On ne peut le désigner sans ambiguïté que si un seul est affiché.
     const targetMember =
@@ -222,7 +231,6 @@ export function AgendaBoard({
       )
       return
     }
-    if (!targetMember) return
 
     setDraft({
       resourceId: targetMember,
@@ -233,14 +241,24 @@ export function AgendaBoard({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <nav aria-label="Navigation dans l’agenda" className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <nav
+          aria-label="Navigation dans l’agenda"
+          className="flex flex-1 items-center justify-between gap-2 sm:flex-none sm:justify-start sm:gap-3"
+        >
           <button
             type="button"
             onClick={() => navigate({ date: shiftDate(date, -step) })}
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
           >
-            ← {view === 'week' ? 'Semaine précédente' : 'Jour précédent'}
+            <span aria-hidden="true">←</span>
+            <span className="hidden sm:inline">
+              {' '}
+              {view === 'week' ? 'Semaine précédente' : 'Jour précédent'}
+            </span>
+            <span className="sr-only">
+              {view === 'week' ? 'Semaine précédente' : 'Jour précédent'}
+            </span>
           </button>
           <p className="font-medium" aria-live="polite">
             {view === 'week'
@@ -252,7 +270,18 @@ export function AgendaBoard({
             onClick={() => navigate({ date: shiftDate(date, step) })}
             className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
           >
-            {view === 'week' ? 'Semaine suivante' : 'Jour suivant'} →
+            <span className="sm:hidden" aria-hidden="true">
+              →
+            </span>
+            <span className="hidden sm:inline">
+              <span className="hidden sm:inline">
+                {view === 'week' ? 'Semaine suivante' : 'Jour suivant'}{' '}
+              </span>
+              <span className="sr-only">
+                {view === 'week' ? 'Semaine suivante' : 'Jour suivant'}
+              </span>
+              <span aria-hidden="true">→</span>
+            </span>
           </button>
         </nav>
 
@@ -335,6 +364,7 @@ export function AgendaBoard({
       {selected && (
         <AppointmentDialog
           event={selected}
+          salonId={salonId}
           timezone={timezone}
           staff={staff}
           canWrite={canWrite}
@@ -342,6 +372,7 @@ export function AgendaBoard({
           onClose={() => setSelectedId(null)}
           onReschedule={(next) => reschedule(selected.id, next)}
           onStatus={(status) => changeStatus(selected.id, status)}
+          onSaveNote={(note) => saveNote(selected.id, note)}
         />
       )}
     </div>

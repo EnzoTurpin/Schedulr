@@ -3,10 +3,13 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { SALON_ROLE_LABELS } from '@/lib/labels'
+import { DeactivateMemberDialog } from './DeactivateMemberDialog'
 import { MemberForm } from './MemberForm'
 import { MemberSchedule, type TimeOff } from './MemberSchedule'
+import { ServiceOverrides } from './ServiceOverrides'
 import type { Week } from './WeekEditor'
 import {
+  countUpcomingAction,
   deactivateMemberAction,
   inviteMemberAction,
   revokeInvitationAction,
@@ -31,7 +34,7 @@ type Member = {
   isActive: boolean
   userId: string | null
   user: { email: string } | null
-  services: { serviceId: string }[]
+  services: { serviceId: string; durationMin: number | null; priceCents: number | null }[]
   workingHours: { dayOfWeek: number; startMin: number; endMin: number }[]
 }
 
@@ -46,7 +49,7 @@ type Props = {
   salonId: string
   timezone: string
   members: Member[]
-  services: { id: string; name: string }[]
+  services: { id: string; name: string; durationMin: number; priceCents: number }[]
   invitations: Invitation[]
   timeOff: TimeOff[]
   /** Horaires du salon, proposés par défaut à un membre qui n'en a aucun. */
@@ -81,6 +84,10 @@ export function TeamPanel({
   const [assigning, setAssigning] = useState<Member | null>(null)
   const [inviting, setInviting] = useState<Member | null>(null)
   const [scheduling, setScheduling] = useState<Member | null>(null)
+  const [deactivating, setDeactivating] = useState<{
+    member: Member
+    upcoming: number
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -235,9 +242,29 @@ export function TeamPanel({
                   )}
                   <button
                     type="button"
-                    onClick={() =>
-                      run(() => deactivateMemberAction({ salonId, memberId: member.id }))
-                    }
+                    onClick={() => {
+                      setError(null)
+                      startTransition(async () => {
+                        // Les rendez-vous à venir décident du parcours : sans
+                        // eux la désactivation est immédiate, sinon le salon
+                        // doit trancher leur sort.
+                        const counted = await countUpcomingAction({
+                          salonId,
+                          memberId: member.id,
+                        })
+                        if (!counted.ok) {
+                          setError(counted.error)
+                          return
+                        }
+                        if (counted.count === 0) {
+                          run(() =>
+                            deactivateMemberAction({ salonId, memberId: member.id }),
+                          )
+                          return
+                        }
+                        setDeactivating({ member, upcoming: counted.count })
+                      })
+                    }}
                     className="text-red-700 underline"
                   >
                     Désactiver
@@ -378,6 +405,23 @@ export function TeamPanel({
               </form>
             )}
 
+            {assigning?.id === member.id && (
+              <details className="mt-3 rounded-md bg-slate-50 p-4">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Durées et prix propres à {member.displayName}
+                </summary>
+                <div className="mt-3">
+                  <ServiceOverrides
+                    salonId={salonId}
+                    memberId={member.id}
+                    memberName={member.displayName}
+                    services={services}
+                    assignments={member.services}
+                  />
+                </div>
+              </details>
+            )}
+
             {scheduling?.id === member.id && (
               <MemberSchedule
                 salonId={salonId}
@@ -393,6 +437,25 @@ export function TeamPanel({
           </li>
         ))}
       </ul>
+
+      {deactivating && (
+        <DeactivateMemberDialog
+          salonId={salonId}
+          member={deactivating.member}
+          upcoming={deactivating.upcoming}
+          candidates={members
+            .filter(
+              (candidate) =>
+                candidate.isActive && candidate.id !== deactivating.member.id,
+            )
+            .map((candidate) => ({ id: candidate.id, label: candidate.displayName }))}
+          onClose={() => setDeactivating(null)}
+          onDone={() => {
+            setDeactivating(null)
+            router.refresh()
+          }}
+        />
+      )}
     </section>
   )
 }

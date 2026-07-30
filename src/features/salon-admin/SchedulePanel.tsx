@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { WeekEditor, compactWeek, type Week } from './WeekEditor'
 import {
+  countAffectedAction,
   createClosureAction,
   deleteClosureAction,
   saveOpeningHoursAction,
@@ -30,6 +31,7 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
   const [week, setWeek] = useState<Week>(openingHours)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [affected, setAffected] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
 
   function save() {
@@ -45,7 +47,10 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
     })
   }
 
-  function run(call: () => Promise<{ ok: boolean; error?: string }>) {
+  function run(
+    call: () => Promise<{ ok: boolean; error?: string }>,
+    onDone?: () => void | Promise<void>,
+  ) {
     setError(null)
     startTransition(async () => {
       const result = await call()
@@ -53,6 +58,7 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
         setError(result.error ?? 'L’enregistrement a échoué.')
         return
       }
+      await onDone?.()
       router.refresh()
     })
   }
@@ -109,17 +115,39 @@ export function SchedulePanel({ salonId, timezone, openingHours, closures }: Pro
         réservation.
       </p>
 
+      {affected !== null && (
+        <p
+          role="status"
+          className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          {affected === 0
+            ? 'Aucun rendez-vous n’était prévu sur cette période.'
+            : `${affected} rendez-vous étaient prévus sur cette période. Ils ne sont pas annulés : traitez-les depuis l’agenda.`}
+        </p>
+      )}
+
       <form
-        action={(formData) =>
-          run(() =>
-            createClosureAction({
-              salonId,
-              startAt: new Date(String(formData.get('start'))).getTime(),
-              endAt: new Date(String(formData.get('end'))).getTime(),
-              reason: String(formData.get('reason') ?? '') || undefined,
-            }),
+        action={(formData) => {
+          const startAt = new Date(String(formData.get('start'))).getTime()
+          const endAt = new Date(String(formData.get('end'))).getTime()
+
+          run(
+            () =>
+              createClosureAction({
+                salonId,
+                startAt,
+                endAt,
+                reason: String(formData.get('reason') ?? '') || undefined,
+              }),
+            async () => {
+              // Une fermeture retire les créneaux à venir, mais laisse les
+              // rendez-vous déjà pris : le salon doit savoir combien il en a à
+              // reprogrammer.
+              const counted = await countAffectedAction({ salonId, startAt, endAt })
+              setAffected(counted.ok ? counted.count : null)
+            },
           )
-        }
+        }}
         className="mt-5 flex flex-wrap items-end gap-3"
       >
         <div className="flex flex-col gap-1.5">

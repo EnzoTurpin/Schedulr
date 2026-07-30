@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import { createSessionToken, e2eDb, seedE2e } from './helpers/seed'
+import { CLIENT_EMAIL, createSessionToken, e2eDb, seedE2e } from './helpers/seed'
 
 /**
  * Agenda professionnel — critère d'acceptation de la phase 4 : un gérant gère
@@ -292,7 +292,7 @@ test('la gérante déplace un rendez-vous depuis sa fenêtre', async ({ page }) 
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Déplacer' }).click()
   await dialog.getByLabel('Début').fill(`${DATE}T16:30`)
-  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+  await dialog.getByRole('button', { name: 'Enregistrer le déplacement' }).click()
 
   await expect
     .poll(async () => {
@@ -314,7 +314,7 @@ test('changer la durée depuis la fenêtre allonge le rendez-vous', async ({ pag
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Déplacer' }).click()
   await dialog.getByLabel('Durée').selectOption('90')
-  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+  await dialog.getByRole('button', { name: 'Enregistrer le déplacement' }).click()
 
   await expect
     .poll(async () => {
@@ -367,7 +367,7 @@ test('un déplacement refusé remet le rendez-vous à sa place', async ({ page }
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: 'Déplacer' }).click()
   await dialog.getByLabel('Début').fill(`${DATE}T15:15`)
-  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
+  await dialog.getByRole('button', { name: 'Enregistrer le déplacement' }).click()
 
   // Message explicite, et non un échec silencieux. On cible notre alerte :
   // Next.js injecte son propre role="alert" pour annoncer les changements de
@@ -486,4 +486,78 @@ test('la vue semaine se cale sur le lundi quelle que soit la date demandée', as
   await page.goto(`/pro/${salonId}?date=${DATE}&view=week`)
 
   await expect(page.getByText(/Semaine du 14 septembre/)).toBeVisible()
+})
+
+test('la gérante écrit une note interne depuis la fenêtre', async ({ page }) => {
+  // `setStaffNoteAction` existait sans aucun appelant : la note s'affichait
+  // mais ne pouvait être saisie qu'à la création du rendez-vous.
+  await signInAsOwner(page)
+  const appointment = await seedAppointment(14)
+
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
+  await page.getByRole('button', { name: /Madame Durand/ }).click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Note interne').fill('Préfère le shampooing sans sulfate.')
+  await dialog.getByRole('button', { name: 'Enregistrer la note' }).click()
+
+  await expect
+    .poll(async () => {
+      const row = await e2eDb.appointment.findUniqueOrThrow({
+        where: { id: appointment.id },
+      })
+      return row.staffNote
+    })
+    .toBe('Préfère le shampooing sans sulfate.')
+})
+
+test('la fiche client montre l’historique et les absences', async ({ page }) => {
+  await signInAsOwner(page)
+
+  const client = await e2eDb.user.findFirstOrThrow({ where: { email: CLIENT_EMAIL } })
+  const start = new Date(`${DATE}T14:00:00+02:00`)
+  await e2eDb.appointment.create({
+    data: {
+      salonId,
+      memberId,
+      clientId: client.id,
+      startAt: start,
+      endAt: new Date(start.getTime() + 60 * 60_000),
+      source: 'ONLINE',
+      items: {
+        create: {
+          salonId,
+          serviceId,
+          nameSnapshot: 'Coupe femme',
+          durationMin: 60,
+          priceCents: 3500,
+          position: 0,
+        },
+      },
+    },
+  })
+
+  // Une absence passée, qui doit remonter dans la fiche.
+  const past = new Date(`${DATE}T10:00:00+02:00`)
+  past.setDate(past.getDate() - 20)
+  await e2eDb.appointment.create({
+    data: {
+      salonId,
+      memberId,
+      clientId: client.id,
+      startAt: past,
+      endAt: new Date(past.getTime() + 60 * 60_000),
+      status: 'NO_SHOW',
+    },
+  })
+
+  await page.goto(`/pro/${salonId}?date=${DATE}&view=day`)
+  await page
+    .getByRole('button', { name: /Camille/ })
+    .first()
+    .click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByText('Fiche client').click()
+  await expect(dialog.getByText(/1 rendez-vous manqué/)).toBeVisible()
 })

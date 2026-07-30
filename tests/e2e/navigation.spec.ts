@@ -125,3 +125,28 @@ test('la recherche publique trouve un salon par sa prestation', async ({ page })
 
   await expect(page.getByRole('heading', { name: 'Salon Bout-en-Bout' })).toBeVisible()
 })
+
+test('aucun écran ne déborde horizontalement sur téléphone', async ({ page }) => {
+  // `/admin/comptes` débordait de 49 pixels : son tableau faisait défiler la
+  // page entière au lieu de défiler lui-même.
+  await seedE2e()
+  await signInAs(page, OWNER_EMAIL)
+  await page.setViewportSize({ width: 375, height: 667 })
+
+  const salon = await e2eDb.salon.findFirstOrThrow({ where: { slug: 'salon-e2e' } })
+
+  for (const path of [
+    '/',
+    '/mon-compte',
+    '/mon-compte/profil',
+    `/pro/${salon.id}`,
+    `/pro/${salon.id}/configuration/equipe`,
+  ]) {
+    await page.goto(path)
+    const measured = await page.evaluate(() => ({
+      document: document.documentElement.scrollWidth,
+      window: window.innerWidth,
+    }))
+    expect(measured.document, `${path} déborde`).toBeLessThanOrEqual(measured.window + 1)
+  }
+})

@@ -5,6 +5,119 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.13.0] - 2026-07-30
+
+### Fixed
+
+- **`/admin/comptes` débordait de 49 pixels sur un écran de 375.** Son tableau
+  faisait défiler la page entière ; il défile désormais dans son propre
+  conteneur. Un test vérifie qu'aucun écran ne déborde horizontalement sur
+  téléphone.
+- La navigation de l'agenda tient sur un écran étroit : les libellés « Semaine
+  précédente » et « Semaine suivante » se réduisent à leur flèche sous 640 px,
+  le texte restant annoncé aux lecteurs d'écran.
+- Condition dupliquée dans la création d'un rendez-vous depuis l'agenda.
+
+### Changed
+
+- `avatarUrl` n'est plus lue : la colonne était sélectionnée dans la fiche
+  publique sans jamais être affichée ni alimentable. Elle est conservée et
+  documentée comme réservée à l'ADR-0006, dont le fournisseur de stockage reste
+  à choisir — la supprimer imposerait deux migrations au lieu d'aucune.
+
+## [1.12.0] - 2026-07-30
+
+### Security
+
+- **L'adresse électronique survivait à l'effacement d'un compte** dans les
+  invitations d'équipe : `SalonInvitation.email` n'était ni exportée ni
+  neutralisée. L'adresse est désormais remplacée et le jeton régénéré — un lien
+  intercepté avant l'effacement n'ouvre plus rien — tout en conservant
+  l'invitation, dont le salon doit garder trace.
+- Les invitations reçues entrent dans l'export de données personnelles.
+
+### Fixed
+
+- **Les sessions expirées d'un compte qui ne revient jamais restaient
+  indéfiniment.** Elles sont supprimées à la lecture, ce qui ne couvrait pas ce
+  cas ; chaque ligne porte un identifiant d'utilisateur. La purge quotidienne
+  s'en charge.
+- Les invitations expirées ou révoquées sont purgées au bout de trois mois : ce
+  sont des adresses en clair sans utilité passé ce délai. Une invitation
+  acceptée est conservée, elle atteste d'un rattachement.
+
+## [1.11.0] - 2026-07-30
+
+### Fixed
+
+- **Le taux d'occupation ignorait congés et fermetures.** Un coiffeur en
+  vacances comptait toujours comme capacité, l'indicateur était donc
+  sous-estimé. L'approximation était admissible tant que les congés n'étaient
+  pas saisissables ; elle ne l'était plus depuis la 1.2.0. La capacité ne peut
+  pas devenir négative lorsque congés et fermetures se recouvrent.
+
+### Added
+
+- **Avertissement de chevauchement au récapitulatif** : un client déjà pris sur
+  le créneau visé en est informé, tous salons confondus. Averti et non refusé —
+  un parent réservant pour son enfant depuis son propre compte est un cas
+  légitime, qu'une contrainte en base interdirait.
+
+## [1.10.0] - 2026-07-30
+
+### Added
+
+- **Note interne éditable** depuis la fenêtre d'un rendez-vous. Elle s'affichait
+  déjà mais ne pouvait être saisie qu'à la création : `setStaffNoteAction`
+  n'avait aucun appelant.
+- **Fiche client** dans la fenêtre : historique des dix derniers rendez-vous,
+  coiffeur, et nombre d'absences — l'information qui décide si l'on rappelle un
+  client la veille. Chargée à la demande, pour ne pas multiplier les requêtes
+  par bloc affiché.
+- **Journal du salon** (`/pro/[salonId]/journal`). Le droit `audit:read_salon`
+  existait, réservé au gérant, sans aucun écran pour l'exercer.
+- **Renommage d'une catégorie** de prestations. On pouvait la créer et la
+  supprimer, jamais corriger son nom.
+- **Durée et prix propres à un coiffeur** pour une prestation. Le moteur de
+  disponibilité honorait déjà cette durée ; seule la saisie manquait.
+- Avertissement du nombre de rendez-vous concernés après une fermeture
+  exceptionnelle. Ils ne sont pas annulés : le salon doit les traiter.
+
+### Changed
+
+- `actions.ts` dépassait 630 lignes : découpé par domaine dans `actions/`, avec
+  un point d'entrée qui préserve les imports existants.
+- Le bouton de déplacement d'un rendez-vous s'intitule « Enregistrer le
+  déplacement » : deux boutons « Enregistrer » coexistaient dans la fenêtre.
+
+## [1.9.0] - 2026-07-30
+
+### Fixed
+
+- **Désactiver un membre faisait disparaître ses rendez-vous à venir de
+  l'agenda sans les annuler.** `listAgendaStaff` ne renvoyant que les membres
+  actifs, ils sortaient du filtre tout en restant confirmés côté client : la
+  personne se présentait, le salon n'en avait aucune trace. Mesuré sur un salon
+  réel : 82 rendez-vous devenus invisibles. La désactivation est désormais
+  refusée tant qu'il en reste, avec transfert vers un autre coiffeur ou
+  annulation en masse — chaque client prévenu dans les deux cas.
+- **Aucune notification n'était envoyée lors d'un déplacement.** Le client se
+  présentait à l'ancien horaire. Le plan d'action promettait ce gabarit depuis
+  la phase 6.
+
+### Added
+
+- Gabarit `booking_updated`, courriel et SMS, envoyé au déplacement d'un
+  rendez-vous ou à son changement de coiffeur. Un changement de durée seul ne
+  notifie pas : le client n'a rien à ajuster.
+
+### Security
+
+- La clé d'idempotence des notifications accepte un discriminant. Sans lui, une
+  seconde modification du même rendez-vous aurait été écartée comme déjà
+  envoyée, laissant le client sur un horaire périmé. Un déplacement répété vers
+  le même créneau reste une seule notification.
+
 ## [1.8.0] - 2026-07-29
 
 ### Changed

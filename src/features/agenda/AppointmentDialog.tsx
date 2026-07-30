@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatInTimeZone } from 'date-fns-tz'
 import { formatDate, formatDuration, formatPrice } from '@/lib/format'
 import type { AgendaEvent } from './AgendaBoard'
+import { ClientRecord } from './ClientRecord'
 
 /**
  * Fenêtre d'un rendez-vous.
@@ -35,6 +36,7 @@ const DURATIONS = [15, 30, 45, 60, 75, 90, 120, 150, 180]
 
 type Props = {
   event: AgendaEvent
+  salonId: string
   timezone: string
   /** Coiffeurs entre lesquels le rendez-vous peut être déplacé. */
   staff: { id: string; label: string }[]
@@ -43,6 +45,7 @@ type Props = {
   onClose: () => void
   onReschedule: (next: { startAt: number; endAt: number; memberId?: string }) => void
   onStatus: (status: 'DONE' | 'NO_SHOW' | 'CANCELLED') => void
+  onSaveNote: (note: string) => void
 }
 
 /** `AAAA-MM-JJTHH:MM` dans le fuseau du salon, pour un champ `datetime-local`. */
@@ -52,6 +55,7 @@ function toLocalInput(instant: number, timezone: string): string {
 
 export function AppointmentDialog({
   event,
+  salonId,
   timezone,
   staff,
   canWrite,
@@ -59,6 +63,7 @@ export function AppointmentDialog({
   onClose,
   onReschedule,
   onStatus,
+  onSaveNote,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -75,6 +80,8 @@ export function AppointmentDialog({
   const [duration, setDuration] = useState(durationMin)
   const [member, setMember] = useState(event.memberId)
   const [editing, setEditing] = useState(false)
+  const [note, setNote] = useState(event.staffNote ?? '')
+  const [noteSaved, setNoteSaved] = useState(false)
 
   const closed = event.status === 'DONE' || event.status === 'NO_SHOW'
   const cancelled = event.status === 'CANCELLED'
@@ -163,14 +170,61 @@ export function AppointmentDialog({
               <dd>{event.clientNote}</dd>
             </>
           )}
-
-          {event.staffNote && (
-            <>
-              <dt className="text-slate-500">Note interne</dt>
-              <dd>{event.staffNote}</dd>
-            </>
-          )}
         </dl>
+
+        <div className="mt-5">
+          <label htmlFor="rdv-note" className="text-sm font-medium">
+            Note interne
+          </label>
+          <p id="aide-note" className="mt-1 text-xs text-slate-500">
+            Visible du salon seulement. Jamais transmise au client, ni dans son export de
+            données.
+          </p>
+          <textarea
+            id="rdv-note"
+            rows={2}
+            maxLength={1000}
+            value={note}
+            onChange={(domEvent) => {
+              setNote(domEvent.target.value)
+              setNoteSaved(false)
+            }}
+            aria-describedby="aide-note"
+            disabled={!canWrite}
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50"
+          />
+          {canWrite && (
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                disabled={pending || note === (event.staffNote ?? '')}
+                onClick={() => {
+                  setNoteSaved(true)
+                  onSaveNote(note)
+                }}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50"
+              >
+                Enregistrer la note
+              </button>
+              {noteSaved && note === (event.staffNote ?? '') && (
+                <span role="status" className="text-sm text-emerald-700">
+                  Note enregistrée.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <details className="mt-6 border-t border-slate-200 pt-5">
+          <summary className="cursor-pointer text-sm font-medium">Fiche client</summary>
+          <div className="mt-3">
+            <ClientRecord
+              salonId={salonId}
+              appointmentId={event.id}
+              timezone={timezone}
+            />
+          </div>
+        </details>
 
         {canWrite && !closed && !cancelled && (
           <div className="mt-6 border-t border-slate-200 pt-5">
@@ -238,7 +292,7 @@ export function AppointmentDialog({
                     onClick={submit}
                     className="bg-brand-600 hover:bg-brand-700 rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    {pending ? 'Enregistrement…' : 'Enregistrer'}
+                    {pending ? 'Enregistrement…' : 'Enregistrer le déplacement'}
                   </button>
                   <button
                     type="button"

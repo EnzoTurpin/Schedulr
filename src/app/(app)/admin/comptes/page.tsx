@@ -48,36 +48,41 @@ export default async function AdminUsersPage({
         {total} compte{total > 1 ? 's' : ''}
       </p>
 
-      <table className="mt-4 w-full text-sm">
-        <caption className="sr-only">Comptes de la plateforme</caption>
-        <thead>
-          <tr className="border-b border-slate-200 text-left text-slate-500">
-            <th scope="col" className="py-2">
-              Compte
-            </th>
-            <th scope="col">Rôle</th>
-            <th scope="col">Rendez-vous</th>
-            <th scope="col">Salons</th>
-            <th scope="col">Inscrit le</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((user) => (
-            <tr key={user.id} className="border-b border-slate-100">
-              <td className="py-2">
-                <span className="font-medium">
-                  {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
-                </span>
-                <span className="block text-xs text-slate-500">{user.email}</span>
-              </td>
-              <td>{user.role === 'PLATFORM_ADMIN' ? 'Administrateur' : 'Client'}</td>
-              <td>{user._count.appointments}</td>
-              <td>{user._count.memberships}</td>
-              <td>{formatDate(user.createdAt, 'Europe/Paris', 'd MMM yyyy')}</td>
+      {/* Le tableau défile dans son propre conteneur : sans cela il débordait
+          de 49 pixels sur un écran de 375, et c'était la page entière qui
+          défilait horizontalement. */}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[36rem] text-sm">
+          <caption className="sr-only">Comptes de la plateforme</caption>
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-slate-500">
+              <th scope="col" className="py-2">
+                Compte
+              </th>
+              <th scope="col">Rôle</th>
+              <th scope="col">Rendez-vous</th>
+              <th scope="col">Salons</th>
+              <th scope="col">Inscrit le</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((user) => (
+              <tr key={user.id} className="border-b border-slate-100">
+                <td className="py-2">
+                  <span className="font-medium">
+                    {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
+                  </span>
+                  <span className="block text-xs text-slate-500">{user.email}</span>
+                </td>
+                <td>{user.role === 'PLATFORM_ADMIN' ? 'Administrateur' : 'Client'}</td>
+                <td>{user._count.appointments}</td>
+                <td>{user._count.memberships}</td>
+                <td>{formatDate(user.createdAt, 'Europe/Paris', 'd MMM yyyy')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {pageCount > 1 && (
         <nav aria-label="Pagination" className="mt-6 flex justify-center gap-4 text-sm">

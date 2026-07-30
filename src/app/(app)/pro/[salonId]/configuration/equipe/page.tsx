@@ -46,7 +46,12 @@ export default async function TeamPage({
       salonId={salonId}
       timezone={salon.timezone}
       members={members}
-      services={services.map((s) => ({ id: s.id, name: s.name }))}
+      services={services.map((service) => ({
+        id: service.id,
+        name: service.name,
+        durationMin: service.durationMin,
+        priceCents: service.priceCents,
+      }))}
       invitations={invitations}
       timeOff={timeOff}
       openingHours={openingHours}

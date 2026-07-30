@@ -255,6 +255,78 @@ describe('statistiques du salon', () => {
     await expect(getSalonStats(staff, salon.id, PERIOD)).rejects.toThrow(ForbiddenError)
   })
 
+  describe('capacité, congés et fermetures', () => {
+    it('should deduct time off from the capacity', async () => {
+      // Un coiffeur en vacances comptait toujours comme capacité : le taux
+      // d'occupation était sous-estimé d'autant. L'écart était admissible tant
+      // que les congés n'étaient pas saisissables.
+      const { salon, service, member, owner } = await fixture()
+      await appointment(salon.id, member.id, service.id, 10, 'DONE')
+
+      const before = await getSalonStats(owner, salon.id, PERIOD)
+      expect(before.occupancyRate).toBeGreaterThan(0)
+
+      await testDb.timeOff.create({
+        data: {
+          salonId: salon.id,
+          memberId: member.id,
+          startAt: PERIOD.from,
+          endAt: new Date(PERIOD.from.getTime() + 3 * 24 * 3_600_000),
+        },
+      })
+
+      const after = await getSalonStats(owner, salon.id, PERIOD)
+
+      // Capacité réduite, charge inchangée : le taux monte.
+      expect(after.occupancyRate).toBeGreaterThan(before.occupancyRate!)
+    })
+
+    it('should deduct a salon closure from the capacity', async () => {
+      const { salon, service, member, owner } = await fixture()
+      await appointment(salon.id, member.id, service.id, 10, 'DONE')
+
+      const before = await getSalonStats(owner, salon.id, PERIOD)
+
+      await testDb.closure.create({
+        data: {
+          salonId: salon.id,
+          startAt: PERIOD.from,
+          endAt: new Date(PERIOD.from.getTime() + 3 * 24 * 3_600_000),
+        },
+      })
+
+      const after = await getSalonStats(owner, salon.id, PERIOD)
+
+      expect(after.occupancyRate).toBeGreaterThan(before.occupancyRate!)
+    })
+
+    it('should never produce a negative capacity when absences pile up', async () => {
+      // Congés et fermetures peuvent se recouvrir : les compter deux fois ne
+      // doit pas rendre la capacité négative.
+      const { salon, service, member, owner } = await fixture()
+      await appointment(salon.id, member.id, service.id, 10, 'DONE')
+
+      for (let week = 0; week < 8; week++) {
+        await testDb.closure.create({
+          data: { salonId: salon.id, startAt: PERIOD.from, endAt: PERIOD.to },
+        })
+        await testDb.timeOff.create({
+          data: {
+            salonId: salon.id,
+            memberId: member.id,
+            startAt: PERIOD.from,
+            endAt: PERIOD.to,
+          },
+        })
+      }
+
+      const stats = await getSalonStats(owner, salon.id, PERIOD)
+
+      // Capacité nulle : le taux devient indéterminé plutôt qu'aberrant.
+      expect(stats.occupancyRate).toBeNull()
+    })
+  })
+
   describe('top des prestations', () => {
     it('should rank services by volume', async () => {
       const { salon, service, member, owner } = await fixture()
