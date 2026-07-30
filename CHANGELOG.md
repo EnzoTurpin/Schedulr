@@ -5,6 +5,27 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.12.0] - 2026-07-30
+
+### Security
+
+- **L'adresse électronique survivait à l'effacement d'un compte** dans les
+  invitations d'équipe : `SalonInvitation.email` n'était ni exportée ni
+  neutralisée. L'adresse est désormais remplacée et le jeton régénéré — un lien
+  intercepté avant l'effacement n'ouvre plus rien — tout en conservant
+  l'invitation, dont le salon doit garder trace.
+- Les invitations reçues entrent dans l'export de données personnelles.
+
+### Fixed
+
+- **Les sessions expirées d'un compte qui ne revient jamais restaient
+  indéfiniment.** Elles sont supprimées à la lecture, ce qui ne couvrait pas ce
+  cas ; chaque ligne porte un identifiant d'utilisateur. La purge quotidienne
+  s'en charge.
+- Les invitations expirées ou révoquées sont purgées au bout de trois mois : ce
+  sont des adresses en clair sans utilité passé ce délai. Une invitation
+  acceptée est conservée, elle atteste d'un rattachement.
+
 ## [1.11.0] - 2026-07-30
 
 ### Fixed
