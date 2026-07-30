@@ -313,4 +313,136 @@ describe('droits des personnes', () => {
       expect(second.appointments).toBe(0)
     })
   })
+
+  describe('invitations d’équipe', () => {
+    it('should include received invitations in the export', async () => {
+      const { user, actor, salon } = await fixture()
+      const member = await testDb.salonMember.create({
+        data: { salonId: salon.id, displayName: 'Recrue' },
+      })
+      await testDb.salonInvitation.create({
+        data: {
+          salonId: salon.id,
+          memberId: member.id,
+          email: user.email,
+          tokenHash: 'empreinte-test',
+          expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000),
+        },
+      })
+
+      const exported = await exportPersonalData(actor)
+
+      expect(exported.invitations).toHaveLength(1)
+      expect(exported.invitations[0]?.salon).toBe(salon.name)
+    })
+
+    it('should neutralise the address on erasure without losing the invitation', async () => {
+      // L'adresse en clair survivait à l'effacement. Le salon garde trace
+      // d'avoir invité quelqu'un, sans de quoi le recontacter.
+      const { user, actor, salon } = await fixture()
+      const member = await testDb.salonMember.create({
+        data: { salonId: salon.id, displayName: 'Recrue' },
+      })
+      const invitation = await testDb.salonInvitation.create({
+        data: {
+          salonId: salon.id,
+          memberId: member.id,
+          email: user.email,
+          tokenHash: 'empreinte-effacement',
+          expiresAt: new Date(Date.now() + 7 * 24 * 3_600_000),
+        },
+      })
+
+      await eraseAccount(actor)
+
+      const row = await testDb.salonInvitation.findUniqueOrThrow({
+        where: { id: invitation.id },
+      })
+      expect(row.email).not.toBe(user.email)
+      expect(row.email).not.toContain('@example')
+      // Le jeton est régénéré : un lien intercepté avant l'effacement ne doit
+      // plus rien ouvrir.
+      expect(row.tokenHash).not.toBe('empreinte-effacement')
+    })
+  })
+
+  describe('purge', () => {
+    it('should delete sessions that expired and were never resumed', async () => {
+      // Elles sont supprimées à la lecture, mais celles d'un compte qui ne
+      // revient jamais restaient indéfiniment, chacune portant un userId.
+      const { user } = await fixture()
+      await testDb.session.create({
+        data: {
+          userId: user.id,
+          sessionToken: 'jeton-perime',
+          expires: new Date(Date.now() - 86_400_000),
+        },
+      })
+
+      const report = await purgeExpiredData()
+
+      expect(report.sessions).toBeGreaterThanOrEqual(1)
+      expect(await testDb.session.count({ where: { userId: user.id } })).toBe(0)
+    })
+
+    it('should keep a session that is still valid', async () => {
+      const { user } = await fixture()
+      await testDb.session.create({
+        data: {
+          userId: user.id,
+          sessionToken: 'jeton-valide',
+          expires: new Date(Date.now() + 86_400_000),
+        },
+      })
+
+      await purgeExpiredData()
+
+      expect(await testDb.session.count({ where: { userId: user.id } })).toBe(1)
+    })
+
+    it('should purge long-expired invitations', async () => {
+      const { salon } = await fixture()
+      const member = await testDb.salonMember.create({
+        data: { salonId: salon.id, displayName: 'Jamais venu' },
+      })
+      await testDb.salonInvitation.create({
+        data: {
+          salonId: salon.id,
+          memberId: member.id,
+          email: 'jamais.venu@example.fr',
+          tokenHash: 'empreinte-ancienne',
+          // Expirée depuis six mois.
+          expiresAt: new Date(Date.now() - 180 * 86_400_000),
+        },
+      })
+
+      const report = await purgeExpiredData()
+
+      expect(report.invitations).toBe(1)
+    })
+
+    it('should keep an accepted invitation whatever its age', async () => {
+      // Elle atteste du rattachement d'un compte à une fiche : sa suppression
+      // effacerait cette trace du journal du salon.
+      const { salon } = await fixture()
+      const member = await testDb.salonMember.create({
+        data: { salonId: salon.id, displayName: 'Arrivé' },
+      })
+      await testDb.salonInvitation.create({
+        data: {
+          salonId: salon.id,
+          memberId: member.id,
+          email: 'arrive@example.fr',
+          tokenHash: 'empreinte-acceptee',
+          status: 'ACCEPTED',
+          acceptedAt: new Date(Date.now() - 200 * 86_400_000),
+          expiresAt: new Date(Date.now() - 180 * 86_400_000),
+        },
+      })
+
+      const report = await purgeExpiredData()
+
+      expect(report.invitations).toBe(0)
+    })
+  })
 })

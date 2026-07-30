@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { prisma } from '@/lib/db/client'
 import { purgeExpiredTokens } from '@/lib/auth/magicLink'
 import { revokeAllSessions } from '@/lib/auth/session'
@@ -26,6 +26,11 @@ export type PersonalDataExport = {
     createdAt: string
   }
   consents: { type: string; granted: boolean; source: string; recordedAt: string }[]
+  /**
+   * Invitations reçues à rejoindre l'équipe d'un salon. Elles portent l'adresse
+   * de la personne, elles lui sont donc communicables.
+   */
+  invitations: { salon: string; status: string; invitedAt: string }[]
   appointments: {
     salon: string
     startAt: string
@@ -84,6 +89,15 @@ export async function exportPersonalData(actor: Actor): Promise<PersonalDataExpo
     },
   })
 
+  // Les invitations ne sont pas rattachées au compte mais à l'adresse : une
+  // invitation précède, par construction, le rattachement d'un compte à la
+  // fiche de membre.
+  const invitations = await prisma.salonInvitation.findMany({
+    where: { email: user.email },
+    orderBy: { createdAt: 'desc' },
+    select: { status: true, createdAt: true, salon: { select: { name: true } } },
+  })
+
   return {
     exportedAt: new Date().toISOString(),
     account: {
@@ -98,6 +112,11 @@ export async function exportPersonalData(actor: Actor): Promise<PersonalDataExpo
       granted: consent.granted,
       source: consent.source,
       recordedAt: consent.createdAt.toISOString(),
+    })),
+    invitations: invitations.map((invitation) => ({
+      salon: invitation.salon.name,
+      status: invitation.status,
+      invitedAt: invitation.createdAt.toISOString(),
     })),
     appointments: user.appointments.map((appointment) => ({
       salon: appointment.salon.name,
@@ -163,6 +182,13 @@ export async function eraseAccount(actor: Actor): Promise<void> {
 
   const now = new Date()
 
+  // L'adresse actuelle sert à retrouver les invitations, qui ne sont pas liées
+  // au compte : il faut la lire avant de l'anonymiser.
+  const { email } = await prisma.user.findUniqueOrThrow({
+    where: { id: actor.userId },
+    select: { email: true },
+  })
+
   await prisma.$transaction([
     prisma.user.update({
       where: { id: actor.userId },
@@ -187,6 +213,12 @@ export async function eraseAccount(actor: Actor): Promise<void> {
     prisma.consentRecord.deleteMany({ where: { userId: actor.userId } }),
     prisma.account.deleteMany({ where: { userId: actor.userId } }),
     prisma.session.deleteMany({ where: { userId: actor.userId } }),
+    // L'adresse est neutralisée, pas l'invitation : le salon doit garder trace
+    // d'avoir invité quelqu'un, sans conserver de quoi le recontacter.
+    prisma.salonInvitation.updateMany({
+      where: { email },
+      data: { email: anonymousEmail(actor.userId), tokenHash: randomUUID() },
+    }),
   ])
 
   await revokeAllSessions(actor.userId)
@@ -208,6 +240,14 @@ export const RETENTION = {
   auditYears: 3,
   /** Comptes anonymisés sans rendez-vous : purgés au bout d'un an. */
   anonymisedAccountMonths: 12,
+  /**
+   * Invitations expirées ou révoquées : trois mois.
+   *
+   * Elles portent une adresse en clair. Le délai laisse le temps de constater
+   * qu'une invitation n'a pas abouti, sans conserver indéfiniment de quoi
+   * recontacter quelqu'un qui n'a jamais rejoint l'équipe.
+   */
+  expiredInvitationMonths: 3,
 } as const
 
 export type PurgeReport = {
@@ -217,6 +257,10 @@ export type PurgeReport = {
   accounts: number
   /** Liens de connexion périmés. */
   tokens: number
+  /** Sessions expirées jamais reprises. */
+  sessions: number
+  /** Invitations expirées ou révoquées, qui portaient une adresse en clair. */
+  invitations: number
 }
 
 /**
@@ -255,11 +299,26 @@ export async function purgeExpiredData(now = new Date()): Promise<PurgeReport> {
   // Les liens de connexion expirés ne servent plus à rien et s'accumulent.
   const tokens = await purgeExpiredTokens(now)
 
+  // Les sessions expirées sont supprimées à la lecture, mais celles d'un compte
+  // qui ne revient jamais restaient indéfiniment — chacune portant un `userId`.
+  const sessions = await prisma.session.deleteMany({ where: { expires: { lt: now } } })
+
+  // Les invitations expirées portent une adresse en clair : les conserver
+  // au-delà de leur validité n'a aucune utilité.
+  const invitations = await prisma.salonInvitation.deleteMany({
+    where: {
+      status: { in: ['PENDING', 'REVOKED'] },
+      expiresAt: { lt: monthsAgo(RETENTION.expiredInvitationMonths) },
+    },
+  })
+
   return {
     appointments: appointments.count,
     notifications: notifications.count,
     auditEntries: auditEntries.count,
     accounts: accounts.count,
     tokens,
+    sessions: sessions.count,
+    invitations: invitations.count,
   }
 }
