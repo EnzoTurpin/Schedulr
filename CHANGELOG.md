@@ -5,6 +5,33 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.10.0] - 2026-07-30
+
+### Added
+
+- **Note interne éditable** depuis la fenêtre d'un rendez-vous. Elle s'affichait
+  déjà mais ne pouvait être saisie qu'à la création : `setStaffNoteAction`
+  n'avait aucun appelant.
+- **Fiche client** dans la fenêtre : historique des dix derniers rendez-vous,
+  coiffeur, et nombre d'absences — l'information qui décide si l'on rappelle un
+  client la veille. Chargée à la demande, pour ne pas multiplier les requêtes
+  par bloc affiché.
+- **Journal du salon** (`/pro/[salonId]/journal`). Le droit `audit:read_salon`
+  existait, réservé au gérant, sans aucun écran pour l'exercer.
+- **Renommage d'une catégorie** de prestations. On pouvait la créer et la
+  supprimer, jamais corriger son nom.
+- **Durée et prix propres à un coiffeur** pour une prestation. Le moteur de
+  disponibilité honorait déjà cette durée ; seule la saisie manquait.
+- Avertissement du nombre de rendez-vous concernés après une fermeture
+  exceptionnelle. Ils ne sont pas annulés : le salon doit les traiter.
+
+### Changed
+
+- `actions.ts` dépassait 630 lignes : découpé par domaine dans `actions/`, avec
+  un point d'entrée qui préserve les imports existants.
+- Le bouton de déplacement d'un rendez-vous s'intitule « Enregistrer le
+  déplacement » : deux boutons « Enregistrer » coexistaient dans la fenêtre.
+
 ## [1.9.0] - 2026-07-30
 
 ### Fixed

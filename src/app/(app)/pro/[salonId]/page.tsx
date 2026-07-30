@@ -182,6 +182,14 @@ export default async function AgendaPage({ params, searchParams }: Props) {
               Statistiques
             </Link>
           )}
+          {can(actor, 'audit:read_salon', resource) && (
+            <Link
+              href={`/pro/${salonId}/journal`}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm"
+            >
+              Journal
+            </Link>
+          )}
           {can(actor, 'service:manage', resource) && (
             <Link
               href={`/pro/${salonId}/configuration`}

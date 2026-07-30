@@ -6,6 +6,7 @@ import { formatDuration, formatPrice } from '@/lib/format'
 import {
   createCategoryAction,
   deleteCategoryAction,
+  renameCategoryAction,
   saveServiceAction,
   toggleServiceAction,
 } from './actions'
@@ -45,6 +46,7 @@ const EMPTY: Omit<Service, 'id' | 'isActive'> = {
 export function ServicesPanel({ salonId, categories, services }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState<Service | 'new' | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -151,17 +153,68 @@ export function ServicesPanel({ salonId, categories, services }: Props) {
               key={category.id}
               className="flex items-center gap-2 rounded-full bg-slate-100 py-1 pr-2 pl-3 text-sm"
             >
-              {category.name}
-              <button
-                type="button"
-                onClick={() =>
-                  run(() => deleteCategoryAction({ salonId, categoryId: category.id }))
-                }
-                aria-label={`Supprimer la catégorie ${category.name}`}
-                className="text-slate-500 hover:text-red-700"
-              >
-                ×
-              </button>
+              {renaming === category.id ? (
+                <form
+                  action={(formData) =>
+                    run(
+                      () =>
+                        renameCategoryAction({
+                          salonId,
+                          categoryId: category.id,
+                          name: String(formData.get('name') ?? ''),
+                        }),
+                      () => setRenaming(null),
+                    )
+                  }
+                  className="flex items-center gap-2"
+                >
+                  <label htmlFor={`categorie-${category.id}`} className="sr-only">
+                    Nouveau nom de la catégorie {category.name}
+                  </label>
+                  <input
+                    id={`categorie-${category.id}`}
+                    name="name"
+                    required
+                    maxLength={80}
+                    defaultValue={category.name}
+                    className="w-40 rounded border border-slate-300 px-2 py-0.5 text-sm"
+                  />
+                  <button type="submit" disabled={pending} className="underline">
+                    Enregistrer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRenaming(null)}
+                    className="text-slate-500"
+                  >
+                    Annuler
+                  </button>
+                </form>
+              ) : (
+                <>
+                  {category.name}
+                  <button
+                    type="button"
+                    onClick={() => setRenaming(category.id)}
+                    aria-label={`Renommer la catégorie ${category.name}`}
+                    className="text-slate-500 hover:text-slate-900"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      run(() =>
+                        deleteCategoryAction({ salonId, categoryId: category.id }),
+                      )
+                    }
+                    aria-label={`Supprimer la catégorie ${category.name}`}
+                    className="text-slate-500 hover:text-red-700"
+                  >
+                    ×
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>

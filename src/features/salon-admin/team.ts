@@ -33,7 +33,7 @@ export async function listTeam(actor: Actor, salonId: string) {
       isActive: true,
       userId: true,
       user: { select: { email: true } },
-      services: { select: { serviceId: true } },
+      services: { select: { serviceId: true, durationMin: true, priceCents: true } },
       workingHours: {
         orderBy: [{ dayOfWeek: 'asc' }, { startMin: 'asc' }],
         select: { dayOfWeek: true, startMin: true, endMin: true },

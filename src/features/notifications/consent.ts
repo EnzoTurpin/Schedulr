@@ -54,6 +54,15 @@ export async function recordConsent(
 }
 
 /** Le client accepte-t-il les SMS transactionnels ? */
+/**
+ * Dernière décision de consentement aux SMS.
+ *
+ * Sans appelant applicatif : `loadAppointmentSummary` lit le consentement dans
+ * la même requête que le rendez-vous, pour éviter un aller-retour par message.
+ * Conservée parce qu'elle exprime la règle — la décision la plus récente fait
+ * foi, l'historique restant comme preuve — et que c'est elle que le test
+ * vérifie.
+ */
 export async function hasSmsConsent(userId: string): Promise<boolean> {
   const latest = await prisma.consentRecord.findFirst({
     where: { userId, type: 'TRANSACTIONAL_SMS' },

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import {
   moveAppointmentAction,
   resizeAppointmentAction,
+  setStaffNoteAction,
   setStatusAction,
 } from './actions'
 import { AppointmentDialog } from './AppointmentDialog'
@@ -207,6 +208,15 @@ export function AgendaBoard({
     })
   }
 
+  /** Enregistre une note interne, sans fermer la fenêtre. */
+  function saveNote(id: string, staffNote: string) {
+    optimistic(
+      (current) =>
+        current.map((event) => (event.id === id ? { ...event, staffNote } : event)),
+      () => setStaffNoteAction({ salonId, appointmentId: id, staffNote }),
+    )
+  }
+
   function openDraft(next: { resourceId: string; startAt: number }) {
     // En vue semaine, la colonne désigne un jour : le coiffeur est celui déjà
     // sélectionné.
@@ -335,6 +345,7 @@ export function AgendaBoard({
       {selected && (
         <AppointmentDialog
           event={selected}
+          salonId={salonId}
           timezone={timezone}
           staff={staff}
           canWrite={canWrite}
@@ -342,6 +353,7 @@ export function AgendaBoard({
           onClose={() => setSelectedId(null)}
           onReschedule={(next) => reschedule(selected.id, next)}
           onStatus={(status) => changeStatus(selected.id, status)}
+          onSaveNote={(note) => saveNote(selected.id, note)}
         />
       )}
     </div>

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireActor, UnauthenticatedError } from '@/lib/auth/actor'
+import { assertCan } from '@/lib/authz/can'
+import { getClientRecord } from './queries'
 import { ForbiddenError, ResourceNotFoundError } from '@/lib/authz/types'
 import { SlotConflictError } from '@/lib/db/errors'
 import {
@@ -176,5 +178,41 @@ export async function setStaffNoteAction(raw: unknown): Promise<AgendaResult> {
     return { ok: true }
   } catch (error) {
     return toError(error, { salonId: parsed.data.salonId })
+  }
+}
+
+/**
+ * Fiche client vue du salon : historique, absences, coiffeur habituel.
+ *
+ * Chargée à la demande et non avec l'agenda : dix rendez-vous d'historique par
+ * bloc affiché multiplierait les requêtes sans que personne ne les consulte.
+ */
+export async function clientRecordAction(
+  raw: unknown,
+): Promise<
+  | { ok: true; record: Awaited<ReturnType<typeof getClientRecord>> }
+  | { ok: false; error: string }
+> {
+  const parsed = z
+    .object({ salonId: z.string().min(1), appointmentId: z.string().min(1) })
+    .safeParse(raw)
+  if (!parsed.success) return { ok: false, error: 'Requête invalide.' }
+
+  try {
+    const actor = await requireActor()
+    // La fiche expose l'historique d'un client : elle relève de l'agenda du
+    // salon, pas d'un simple accès au rendez-vous.
+    assertCan(actor, 'agenda:read_salon', {
+      kind: 'salon',
+      salonId: parsed.data.salonId,
+    })
+
+    return {
+      ok: true,
+      record: await getClientRecord(parsed.data.salonId, parsed.data.appointmentId),
+    }
+  } catch (error) {
+    const failure = toError(error, { salonId: parsed.data.salonId })
+    return failure.ok ? { ok: false, error: 'Lecture impossible.' } : failure
   }
 }
