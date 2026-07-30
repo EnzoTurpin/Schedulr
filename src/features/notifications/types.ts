@@ -37,6 +37,7 @@ export interface SmsProvider {
 /** Gabarits disponibles. La valeur sert de clé d'idempotence et de journal. */
 export const TEMPLATES = [
   'booking_confirmed',
+  'booking_updated',
   'booking_cancelled',
   'reminder_j1',
 ] as const

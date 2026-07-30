@@ -5,6 +5,34 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.9.0] - 2026-07-30
+
+### Fixed
+
+- **Désactiver un membre faisait disparaître ses rendez-vous à venir de
+  l'agenda sans les annuler.** `listAgendaStaff` ne renvoyant que les membres
+  actifs, ils sortaient du filtre tout en restant confirmés côté client : la
+  personne se présentait, le salon n'en avait aucune trace. Mesuré sur un salon
+  réel : 82 rendez-vous devenus invisibles. La désactivation est désormais
+  refusée tant qu'il en reste, avec transfert vers un autre coiffeur ou
+  annulation en masse — chaque client prévenu dans les deux cas.
+- **Aucune notification n'était envoyée lors d'un déplacement.** Le client se
+  présentait à l'ancien horaire. Le plan d'action promettait ce gabarit depuis
+  la phase 6.
+
+### Added
+
+- Gabarit `booking_updated`, courriel et SMS, envoyé au déplacement d'un
+  rendez-vous ou à son changement de coiffeur. Un changement de durée seul ne
+  notifie pas : le client n'a rien à ajuster.
+
+### Security
+
+- La clé d'idempotence des notifications accepte un discriminant. Sans lui, une
+  seconde modification du même rendez-vous aurait été écartée comme déjà
+  envoyée, laissant le client sur un horaire périmé. Un déplacement répété vers
+  le même créneau reste une seule notification.
+
 ## [1.8.0] - 2026-07-29
 
 ### Changed
