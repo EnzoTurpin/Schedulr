@@ -28,13 +28,26 @@ function hashRecipient(recipient: string): string {
   return createHash('sha256').update(recipient.toLowerCase().trim()).digest('hex')
 }
 
-/** Clé d'idempotence : un gabarit, un canal, un rendez-vous. */
+/**
+ * Clé d'idempotence : un gabarit, un canal, un rendez-vous.
+ *
+ * ⚠️ Une confirmation, une annulation ou un rappel n'arrivent qu'une fois dans
+ * la vie d'un rendez-vous : la clé n'a rien d'autre à distinguer. Une
+ * **modification**, elle, peut se répéter — et sans discriminant, la deuxième
+ * serait silencieusement écartée comme déjà envoyée, laissant le client sur un
+ * horaire périmé.
+ *
+ * Le nouvel horaire joue ce rôle : déplacer deux fois vers le même créneau
+ * reste une seule notification, ce qui est le comportement voulu.
+ */
 export function idempotencyKey(
   appointmentId: string,
   template: TemplateId,
   channel: NotificationChannel,
+  discriminator?: string,
 ): string {
-  return `${appointmentId}:${template}:${channel}`
+  const base = `${appointmentId}:${template}:${channel}`
+  return discriminator ? `${base}:${discriminator}` : base
 }
 
 export type DispatchOutcome =
@@ -70,7 +83,13 @@ export async function dispatch(
     return { status: 'skipped', reason: 'quota_exceeded' }
   }
 
-  const key = idempotencyKey(appointment.appointmentId, template, channel)
+  const key = idempotencyKey(
+    appointment.appointmentId,
+    template,
+    channel,
+    // Une modification est identifiée par l'horaire vers lequel elle mène.
+    template === 'booking_updated' ? String(appointment.startAt.getTime()) : undefined,
+  )
 
   // Réservation de la clé AVANT l'envoi : c'est ce qui rend le job rejouable.
   // Si deux exécutions concurrentes tentent la même notification, la contrainte

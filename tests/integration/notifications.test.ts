@@ -133,6 +133,48 @@ describe('notifications', () => {
     await testDb.$disconnect()
   })
 
+  describe('modification', () => {
+    it('should notify a second modification instead of skipping it', async () => {
+      // La clé d'idempotence ne portait que le gabarit, le canal et le
+      // rendez-vous : une seconde modification aurait été écartée comme déjà
+      // envoyée, laissant le client sur un horaire périmé.
+      const { appointment } = await fixture()
+
+      const first = await notify('booking_updated', appointment.id)
+      expect(first.email.status).toBe('sent')
+
+      await testDb.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          startAt: new Date(appointment.startAt.getTime() + 3_600_000),
+          endAt: new Date(appointment.endAt.getTime() + 3_600_000),
+        },
+      })
+
+      const second = await notify('booking_updated', appointment.id)
+      expect(second.email.status).toBe('sent')
+    })
+
+    it('should skip a repeated modification toward the same slot', async () => {
+      // Rejouer le même déplacement ne doit pas produire un second courriel.
+      const { appointment } = await fixture()
+
+      await notify('booking_updated', appointment.id)
+      const again = await notify('booking_updated', appointment.id)
+
+      expect(again.email).toEqual({ status: 'skipped', reason: 'already_sent' })
+    })
+
+    it('should keep the confirmation independent from the modification', async () => {
+      const { appointment } = await fixture()
+
+      await notify('booking_confirmed', appointment.id)
+      const updated = await notify('booking_updated', appointment.id)
+
+      expect(updated.email.status).toBe('sent')
+    })
+  })
+
   describe('adresse non confirmée', () => {
     it('should withhold the email when the account address is unverified', async () => {
       // Sans cette garde, un compte créé au nom d'un tiers recevrait les

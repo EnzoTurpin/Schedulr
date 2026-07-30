@@ -104,6 +104,28 @@ const EMAIL_BUILDERS: Record<
     ].join('\n'),
   }),
 
+  booking_updated: (appointment) => ({
+    subject: `Rendez-vous modifié — ${appointment.salonName}`,
+    html: wrap(
+      'Votre rendez-vous a changé',
+      [
+        `<p style="margin:0 0 20px">Bonjour ${escapeHtml(appointment.clientName)},</p>`,
+        '<p style="margin:0 0 20px">Votre rendez-vous a été déplacé. Voici les nouvelles informations :</p>',
+        summaryHtml(appointment),
+        appointment.salonPhone
+          ? `<p style="margin:24px 0 0;font-size:14px;color:#64748b">Cet horaire ne vous convient pas ? Appelez le ${escapeHtml(appointment.salonPhone)}.</p>`
+          : '<p style="margin:24px 0 0;font-size:14px;color:#64748b">Cet horaire ne vous convient pas ? Contactez le salon.</p>',
+      ].join(''),
+    ),
+    text: [
+      `Bonjour ${appointment.clientName},`,
+      '',
+      'Votre rendez-vous a été déplacé. Nouvelles informations :',
+      '',
+      summaryText(appointment),
+    ].join('\n'),
+  }),
+
   booking_cancelled: (appointment) => ({
     subject: `Rendez-vous annulé — ${appointment.salonName}`,
     html: wrap(
@@ -159,6 +181,9 @@ const EMAIL_BUILDERS: Record<
 const SMS_BUILDERS: Record<TemplateId, (appointment: AppointmentSummary) => string> = {
   booking_confirmed: (appointment) =>
     `${appointment.salonName} : rendez-vous confirmé ${when(appointment)} avec ${appointment.memberName}. STOP au 36111`,
+
+  booking_updated: (appointment) =>
+    `${appointment.salonName} : votre rendez-vous est déplacé au ${when(appointment)} avec ${appointment.memberName}. STOP au 36111`,
 
   booking_cancelled: (appointment) =>
     `${appointment.salonName} : votre rendez-vous du ${when(appointment)} est annulé. STOP au 36111`,

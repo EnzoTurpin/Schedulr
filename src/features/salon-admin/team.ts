@@ -4,6 +4,7 @@ import { ForbiddenError, ResourceNotFoundError, type Actor } from '@/lib/authz/t
 import { revokeAllSessions } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/client'
 import { forSalon } from '@/lib/db/scoped'
+import { PendingAppointmentsError } from './memberAppointments'
 import type { SalonRole } from '@/generated/prisma'
 import { validateDayRanges, type WeekSchedule } from './schedule'
 
@@ -133,6 +134,16 @@ export async function updateMember(
  * raison pour laquelle les sessions vivent en base (ADR-0001). Un employé qui
  * quitte le salon perd l'accès immédiatement, pas à l'expiration d'un jeton.
  */
+/**
+ * Désactive un membre.
+ *
+ * **Refuse tant que des rendez-vous à venir subsistent.** Sans cette garde, ils
+ * disparaissaient de l'agenda — `listAgendaStaff` ne renvoie que les membres
+ * actifs — tout en restant confirmés côté client : la personne se présentait,
+ * le salon n'en avait aucune trace.
+ *
+ * @throws {PendingAppointmentsError} des rendez-vous restent à traiter.
+ */
 export async function deactivateMember(actor: Actor, salonId: string, memberId: string) {
   assertCan(actor, 'member:manage', { kind: 'salon', salonId })
   const db = forSalon(salonId)
@@ -152,6 +163,15 @@ export async function deactivateMember(actor: Actor, salonId: string, memberId: 
       throw new ForbiddenError('member:manage')
     }
   }
+
+  const pending = await db.appointment.count({
+    where: {
+      memberId,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      startAt: { gt: new Date() },
+    },
+  })
+  if (pending > 0) throw new PendingAppointmentsError(pending)
 
   await db.salonMember.update({
     where: { id: memberId },
@@ -176,7 +196,6 @@ export async function deactivateMember(actor: Actor, salonId: string, memberId: 
   invalidateSalon(salonId)
 }
 
-/** Remplace en bloc les horaires de travail d'un membre. */
 export async function replaceWorkingHours(
   actor: Actor,
   salonId: string,
