@@ -252,10 +252,11 @@ test('un chevauchement avec un autre rendez-vous est signalé sans être bloqué
 
   // Un rendez-vous concurrent est posé sur le créneau visé, chez un autre
   // coiffeur : la contrainte anti-chevauchement ne s'y oppose pas.
+  // L'instant est construit avec le décalage de Paris explicite. `setHours`
+  // travaillerait dans le fuseau de la machine — UTC sur un runner CI, Paris en
+  // local — et décalerait le rendez-vous de deux heures, sans chevauchement.
   const label = (await slot.textContent())!.trim()
-  const [hours, minutes] = label.split(':').map(Number)
-  const conflict = new Date(`${inDays(3)}T00:00:00+02:00`)
-  conflict.setHours(hours!, minutes!, 0, 0)
+  const conflict = new Date(`${inDays(3)}T${label}:00+02:00`)
 
   const other = await e2eDb.salonMember.create({
     data: {
