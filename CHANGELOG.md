@@ -5,6 +5,26 @@ Toutes les évolutions notables de ce projet sont consignées dans ce fichier.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
 versionnage respecte [SemVer](https://semver.org/lang/fr/).
 
+## [1.13.0] - 2026-07-30
+
+### Fixed
+
+- **`/admin/comptes` débordait de 49 pixels sur un écran de 375.** Son tableau
+  faisait défiler la page entière ; il défile désormais dans son propre
+  conteneur. Un test vérifie qu'aucun écran ne déborde horizontalement sur
+  téléphone.
+- La navigation de l'agenda tient sur un écran étroit : les libellés « Semaine
+  précédente » et « Semaine suivante » se réduisent à leur flèche sous 640 px,
+  le texte restant annoncé aux lecteurs d'écran.
+- Condition dupliquée dans la création d'un rendez-vous depuis l'agenda.
+
+### Changed
+
+- `avatarUrl` n'est plus lue : la colonne était sélectionnée dans la fiche
+  publique sans jamais être affichée ni alimentable. Elle est conservée et
+  documentée comme réservée à l'ADR-0006, dont le fournisseur de stockage reste
+  à choisir — la supprimer imposerait deux migrations au lieu d'aucune.
+
 ## [1.12.0] - 2026-07-30
 
 ### Security
